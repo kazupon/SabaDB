@@ -1,3 +1,6 @@
 [submodule "deps/kyotocabinet"]
 	path = deps/kyotocabinet
 	url = https://github.com/kazupon/kyotocabinet.git
+[submodule "deps/libuv"]
+	path = deps/libuv
+	url = https://github.com/joyent/libuv.git
