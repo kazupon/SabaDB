@@ -1,0 +1,1 @@
+cmd_out/Default/copies-out/subdir := ln -f "parentdir/subdir" "out/Default/copies-out/subdir" 2>/dev/null || (rm -rf "out/Default/copies-out/subdir" && cp -af "parentdir/subdir" "out/Default/copies-out/subdir")

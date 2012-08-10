@@ -1,0 +1,1 @@
+cmd_out/Default/copies-out-slash/directory := ln -f "directory" "out/Default/copies-out-slash/directory" 2>/dev/null || (rm -rf "out/Default/copies-out-slash/directory" && cp -af "directory" "out/Default/copies-out-slash/directory")
