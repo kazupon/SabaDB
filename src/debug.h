@@ -6,6 +6,10 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+
+#include <stdio.h>
+
+
 #if defined(NDEBUG) && NDEBUG
 #define TRACE(fmt, ...)     ((void)0)
 #else

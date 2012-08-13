@@ -15,12 +15,20 @@ Event driven cache/storage server
 ## Dependencies
 
 - Git
+- CUnit
 
 
 # Installation
 
 
 # Usage
+
+
+# Running Tests
+
+SabaDB depends on [cunit](http://cunit.sourceforge.net/) for testing.
+
+    $ ./out/Debug/test
 
 
 # License

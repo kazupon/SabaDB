@@ -4,11 +4,32 @@
     #'sabadb_shared_kc%': 'true',
     'kc_shared_include_dir': '<(module_root_dir)/deps/kyotocabinet',
     'kc_shared_library': '<(module_root_dir)/deps/kyotocabinet/libkyotocabinet.a',
+    'sabadb_shared_cunit%': 'false',
   },
 
   'targets': [{
-    'target_name': 'sabadb',
-    'type': 'executable',
+    'target_name': 'kyotocabinet',
+    'type': 'none',
+    'actions': [{
+      'action_name': 'test',
+      'inputs': ['<!@(sh kc-config.sh)'],
+      'outputs': [''],
+      'conditions': [[
+        'OS=="win"', {
+          'action': [
+            'echo', 'notsupport'
+          ]
+        }, {
+          'action': [
+            # run kyotocabinet `make`
+            'sh', 'kc-build.sh'
+          ]
+        }
+      ]]
+    }]
+  }, {
+    'target_name': 'libsabadb',
+    'type': 'static_library',
     'dependencies': [
       'deps/libuv/uv.gyp:uv',
       'kyotocabinet',
@@ -17,8 +38,7 @@
       'deps/libuv/uv.gyp:uv',
     ],
     'sources': [
-      'common.gypi',
-      'src/main.c',
+      'src/saba_utils.c'
     ],
     'defines': [
       'LIBUV_VERSION="<!(git --git-dir deps/libuv/.git describe --all --tags --always --long)"',
@@ -60,24 +80,71 @@
       ]
     ],
   }, {
-    'target_name': 'kyotocabinet',
-    'type': 'none',
-    'actions': [{
-      'action_name': 'test',
-      'inputs': ['<!@(sh kc-config.sh)'],
-      'outputs': [''],
-      'conditions': [[
-        'OS=="win"', {
-          'action': [
-            'echo', 'notsupport'
-          ]
-        }, {
-          'action': [
-            # run kyotocabinet `make`
-            'sh', 'kc-build.sh'
-          ]
+    'target_name': 'test',
+    'type': 'executable',
+    'dependencies': [
+      'libsabadb',
+    ],
+    'sources': [
+      'test/test_saba_utils.c',
+    ],
+    'include_dirs': [
+      'src'
+    ],
+    'conditions': [
+      [
+        'sabadb_shared_cunit=="false"', {
+          'include_dirs': [
+            '/usr/local/include',
+          ],
+          'libraries': [
+            '/usr/local/lib',
+          ], 
         }
-      ]]
-    }]
+      ], [
+        'OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
+          'cflags': [ '--std=c99' ],
+          'defines': [ '_GNU_SOURCE' ]
+        }
+      ], [
+        'OS=="mac"', {
+          'xcode_settings': {
+            'GCC_C_LANGUAGE_STANDARD': 'c99',
+          },
+          'defines': [
+            '_DARWIN_USE_64_BIT_INODE=1',
+          ],
+        },
+      ],
+    ],
+  }, {
+    'target_name': 'sabadb',
+    'type': 'executable',
+    'dependencies': [
+      'libsabadb',
+    ],
+    'sources': [
+      'src/main.c',
+    ],
+    'include_dirs': [
+      'src',
+    ],
+    'conditions': [
+      [
+        'OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
+          'cflags': [ '--std=c99' ],
+          'defines': [ '_GNU_SOURCE' ]
+        }
+      ], [
+        'OS=="mac"', {
+          'xcode_settings': {
+            'GCC_C_LANGUAGE_STANDARD': 'c99',
+          },
+          'defines': [
+            '_DARWIN_USE_64_BIT_INODE=1',
+          ],
+        },
+      ],
+    ],
   }]
 }

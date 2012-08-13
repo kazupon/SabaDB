@@ -54,6 +54,25 @@ parser.add_option("--shared-kc-libname",
     dest="shared_kc_libname",
     help="Alternative lib name to link to (default: 'kyotocabinet')")
 """
+parser.add_option("--shared-cunit",
+    action="store_true",
+    dest="shared_cunit",
+    help="Link to a shared cunit dynamic link library instead of static linking")
+
+parser.add_option("--shared-cunit-includes",
+    action="store",
+    dest="shared_cunit_includes",
+    help="Directory containing cunit header files")
+
+parser.add_option("--shared-cunit-libpath",
+    action="store",
+    dest="shared_cunit_libpath",
+    help="A directory to search for the shared cunit dynamic link library")
+
+parser.add_option("--shared-cunit-libname",
+    action="store",
+    dest="shared_cunit_libname",
+    help="Alternative lib name to link to (default: 'cunit')")
 
 (options, args) = parser.parse_args()
 
@@ -146,6 +165,21 @@ def configure_kc(o):
     o['variables']['sabadb_shared_kc_includes'] = options.shared_kc_includes
 """
 
+def configure_cunit(o):
+  o['variables']['sabadb_shared_cunit'] = b(options.shared_cunit)
+
+  if options.shared_cunit_includes:
+    o['include_dirs'] += [options.shared_cunit_includes]
+    o['variables']['sabadb_shared_cunit_includes'] = options.shared_cunit_includes
+    o['variables']['sabadb_shared_cunit'] = 'true'
+  if options.shared_cunit_libpath:
+    o['libraries'] += ['-L%s' % options.shared_cunit_libpath]
+    o['variables']['sabadb_shared_cunit'] = 'true'
+  if options.shared_cunit_libname:
+    o['libraries'] += ['-l%s' % options.shared_cunit_libname]
+  else:
+    o['libraries'] += ['-lcunit']
+
 print "configure options:", options
 
 output = {
@@ -157,6 +191,7 @@ output = {
 }
 
 configure_sabadb(output)
+configure_cunit(output)
 # TODO: link shared kyotocabinet library options
 #configure_kc(output)
 
