@@ -12,7 +12,7 @@
 saba_message_queue_t* saba_message_queue_alloc(void) {
   saba_message_queue_t *msg_q = (saba_message_queue_t *)malloc(sizeof(saba_message_queue_t));
   assert(msg_q != NULL);
-  TRACE("msg_q =%p\n", msg_q);
+  TRACE("msg_q=%p\n", msg_q);
 
   ngx_queue_init(&msg_q->queue);
   uv_mutex_init(&msg_q->mtx);

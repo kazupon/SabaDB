@@ -20,7 +20,7 @@ void on_notify_stopping(uv_async_t *notifier, int status) {
   
   saba_worker_t *worker = container_of(notifier, saba_worker_t, stop_notifier);
   assert(worker != NULL && worker->req_queue != NULL);
-  TRACE("worker=%p\n", worker);
+  TRACE("worker=%p, state=%d\n", worker, worker->state);
 
   switch (worker->state) {
     case SABA_WORKER_STATE_IDLE:

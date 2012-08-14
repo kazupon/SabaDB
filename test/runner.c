@@ -3,6 +3,7 @@
 #include "test_saba_utils.h"
 #include "test_saba_message_queue.h"
 #include "test_saba_worker.h"
+#include "test_saba_server.h"
 
 
 /*
@@ -37,10 +38,17 @@ int main() {
     CU_TEST_INFO_NULL,
   };
 
+  CU_TestInfo server_tests[] = {
+    { "server 'alloc' and 'free' test", test_saba_server_alloc_and_free },
+    { "server 'start' and 'stop' test", test_saba_server_start_and_stop },
+    CU_TEST_INFO_NULL,
+  };
+
   CU_SuiteInfo suites[] = {
     { "utils tests", NULL, NULL, utils_tests },
     { "message & message queue tests", NULL, NULL, msg_q_tests },
-    { "worker tests", NULL, NULL, worker_tests},
+    { "worker tests", NULL, NULL, worker_tests },
+    { "server tests", NULL, NULL, server_tests },
     CU_SUITE_INFO_NULL,
   };
 
