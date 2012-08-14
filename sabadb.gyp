@@ -38,7 +38,9 @@
       'deps/libuv/uv.gyp:uv',
     ],
     'sources': [
-      'src/saba_utils.c'
+      'src/saba_utils.c',
+      'src/saba_message.c',
+      'src/saba_message_queue.c',
     ],
     'defines': [
       'LIBUV_VERSION="<!(git --git-dir deps/libuv/.git describe --all --tags --always --long)"',
