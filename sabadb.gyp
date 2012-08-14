@@ -89,6 +89,8 @@
     ],
     'sources': [
       'test/test_saba_utils.c',
+      'test/test_saba_message_queue.c',
+      'test/runner.c',
     ],
     'include_dirs': [
       'src'

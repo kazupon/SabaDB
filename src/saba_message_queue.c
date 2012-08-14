@@ -24,10 +24,10 @@ void saba_message_queue_free(saba_message_queue_t *msg_q) {
   assert(msg_q != NULL);
   TRACE("msg_q=%p\n", msg_q);
 
+  saba_message_queue_clear(msg_q);
+
   uv_mutex_lock(&msg_q->mtx);
-  // TODO: shoule be remove queue items.
   free(msg_q);
-  TRACE("free saba_message_queue_t\n");
   uv_mutex_unlock(&msg_q->mtx);
 
   uv_mutex_destroy(&msg_q->mtx);
