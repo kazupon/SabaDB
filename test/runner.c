@@ -2,6 +2,7 @@
 #include <CUnit/Basic.h>
 #include "test_saba_utils.h"
 #include "test_saba_message_queue.h"
+#include "test_saba_worker.h"
 
 
 /*
@@ -30,9 +31,16 @@ int main() {
     CU_TEST_INFO_NULL,
   };
 
+  CU_TestInfo worker_tests[] = {
+    { "worker 'alloc' and 'free' test", test_saba_worker_alloc_and_free },
+    { "worker 'start' and 'stop' test", test_saba_worker_start_and_stop },
+    CU_TEST_INFO_NULL,
+  };
+
   CU_SuiteInfo suites[] = {
     { "utils tests", NULL, NULL, utils_tests },
     { "message & message queue tests", NULL, NULL, msg_q_tests },
+    { "worker tests", NULL, NULL, worker_tests},
     CU_SUITE_INFO_NULL,
   };
 

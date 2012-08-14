@@ -41,6 +41,7 @@
       'src/saba_utils.c',
       'src/saba_message.c',
       'src/saba_message_queue.c',
+      'src/saba_worker.c',
     ],
     'defines': [
       'LIBUV_VERSION="<!(git --git-dir deps/libuv/.git describe --all --tags --always --long)"',
@@ -90,10 +91,12 @@
     'sources': [
       'test/test_saba_utils.c',
       'test/test_saba_message_queue.c',
+      'test/test_saba_worker.c',
       'test/runner.c',
     ],
     'include_dirs': [
-      'src'
+      'src',
+      '<(kc_shared_include_dir)',
     ],
     'conditions': [
       [
