@@ -1,3 +1,11 @@
+*.dylib
+*.so
 *.o
-*.*~
+*.lo
+*.Makefile
+*.target.gyp.mk
+build
+out
+Release
+Debug
 *.swp
