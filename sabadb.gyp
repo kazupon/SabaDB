@@ -127,6 +127,36 @@
       ],
     ],
   }, {
+    'target_name': 'benchmark',
+    'type': 'executable',
+    'dependencies': [
+      'libsabadb',
+    ],
+    'sources': [
+      'benchmark/roundtrips.c',
+    ],
+    'include_dirs': [
+      'src',
+      '<(kc_shared_include_dir)',
+    ],
+    'conditions': [
+      [
+        'OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
+          'cflags': [ '--std=c99' ],
+          'defines': [ '_GNU_SOURCE' ]
+        }
+      ], [
+        'OS=="mac"', {
+          'xcode_settings': {
+            'GCC_C_LANGUAGE_STANDARD': 'c99',
+          },
+          'defines': [
+            '_DARWIN_USE_64_BIT_INODE=1',
+          ],
+        },
+      ],
+    ],
+  }, {
     'target_name': 'sabadb',
     'type': 'executable',
     'dependencies': [
