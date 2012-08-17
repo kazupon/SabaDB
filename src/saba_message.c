@@ -14,6 +14,7 @@ saba_message_t* saba_message_alloc(void) {
   assert(msg != NULL);
 
   msg->kind = SABA_MESSAGE_KIND_UNKNOWN;
+  msg->stream = NULL;
   msg->data = NULL;
 
   return msg;
@@ -21,6 +22,7 @@ saba_message_t* saba_message_alloc(void) {
 
 void saba_message_free(saba_message_t *msg) {
   assert(msg != NULL);
+  msg->stream = NULL;
   free(msg);
 }
 

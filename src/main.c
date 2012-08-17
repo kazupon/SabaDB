@@ -31,7 +31,8 @@ int main () {
 
   uv_loop_t *loop = uv_default_loop();
 
-  server = saba_server_alloc();
+  int32_t worker_num = 1;
+  server = saba_server_alloc(worker_num);
   assert(server != NULL);
 
   int32_t ret = saba_server_start(server, loop, "0.0.0.0", 1978);

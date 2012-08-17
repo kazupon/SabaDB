@@ -29,6 +29,7 @@ int main() {
     { "message queue 'insert_tail' test", test_saba_message_queue_insert_tail },
     { "message queue 'remove' test", test_saba_message_queue_remove },
     { "message queue 'clear' test", test_saba_message_queue_clear },
+    { "message queue 'lock' and 'unlock' test", test_saba_message_queue_lock_and_unlock },
     CU_TEST_INFO_NULL,
   };
 
@@ -41,6 +42,7 @@ int main() {
   CU_TestInfo server_tests[] = {
     { "server 'alloc' and 'free' test", test_saba_server_alloc_and_free },
     { "server 'start' and 'stop' test", test_saba_server_start_and_stop },
+    { "server echo test", test_saba_server_echo },
     CU_TEST_INFO_NULL,
   };
 

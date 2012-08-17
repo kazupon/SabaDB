@@ -20,7 +20,7 @@ void on_notify_stopping(uv_async_t *notifier, int status) {
   
   saba_worker_t *worker = container_of(notifier, saba_worker_t, stop_notifier);
   assert(worker != NULL && worker->req_queue != NULL);
-  TRACE("worker=%p, state=%d\n", worker, worker->state);
+  TRACE("worker->state=%d\n", worker->state);
 
   switch (worker->state) {
     case SABA_WORKER_STATE_IDLE:
@@ -54,41 +54,52 @@ void on_watch_req_queue(uv_idle_t *watcher, int status) {
 
   saba_worker_t *worker = container_of(watcher, saba_worker_t, queue_watcher);
   assert(worker != NULL && worker->req_queue != NULL);
-  TRACE("worker=%p\n", worker);
+
+  saba_message_queue_lock(worker->req_queue);
+  TRACE("worker state(before): %d\n", worker->state);
 
   /* check queue */
   if (saba_message_queue_is_empty(worker->req_queue)) {
-    TRACE("nothing request item in request queue.\n");
+    TRACE("request message is nothing in request message queue\n");
     int32_t ret = uv_idle_stop(&worker->queue_watcher);
     if (ret) {
       uv_err_t err = uv_last_error(loop);
-      TRACE("stop request queue watching: %s (%d)\n", uv_strerror(err), err.code);
+      TRACE("stop request queue watching error: %s (%d)\n", uv_strerror(err), err.code);
     }
     worker->state = SABA_WORKER_STATE_IDLE;
+    TRACE("worker state(after): %d\n", worker->state);
+    saba_message_queue_unlock(worker->req_queue);
     return;
   } else {
     worker->state = SABA_WORKER_STATE_BUSY;
+    TRACE("worker state(after): %d\n", worker->state);
   }
 
   /* get message */
   saba_message_t *msg = saba_message_queue_head(worker->req_queue);
   assert(msg != NULL);
+  TRACE("get request message: kind=%d, stream=%p, data=%p\n", msg->kind, msg->stream, msg->data);
 
-  /* TODO; execute command */
-  TRACE("command: %d\n", msg->kind);
+  /* TODO: somthing todo ... */
 
+  /* remove message to request message queue */
   saba_message_queue_remove(worker->req_queue, msg);
 
-  /* TODO: release message */
+  /* TODO: release message ? */
   /*
   free(msg->command);
   free(msg);
   */
+
+  saba_message_queue_unlock(worker->req_queue);
+
+  assert(worker->res_queue != NULL);
+  saba_message_queue_lock(worker->res_queue);
   
   /* put response message in response queue */
-  assert(worker->res_queue != NULL);
   bool is_empty = saba_message_queue_is_empty(worker->res_queue);
   saba_message_queue_insert_tail(worker->res_queue, msg);
+  TRACE("put response message in response message queue\n");
   if (is_empty) {
     int32_t ret = uv_async_send(&((saba_server_t *)worker->master)->req_proc_done_notifier);
     if (ret) {
@@ -96,6 +107,8 @@ void on_watch_req_queue(uv_idle_t *watcher, int status) {
       TRACE("request procedure done notify error: %s (%d)\n", uv_strerror(err), err.code);
     }
   }
+
+  saba_message_queue_unlock(worker->res_queue);
 }
 
 void on_notify_req_proc(uv_async_t *notifier, int status) {
@@ -103,17 +116,20 @@ void on_notify_req_proc(uv_async_t *notifier, int status) {
   
   saba_worker_t *worker = container_of(notifier, saba_worker_t, req_proc_notifier);
   assert(worker != NULL && worker->req_queue != NULL);
-  TRACE("worker=%p\n", worker);
+
+  saba_message_queue_lock(worker->req_queue);
 
   /* check queue */
   if (!saba_message_queue_is_empty(worker->req_queue)) {
-    TRACE("message item in request queue.\n");
+    TRACE("request message in request message queue.\n");
     int32_t ret = uv_idle_start(&worker->queue_watcher, on_watch_req_queue);
     if (ret) {
       uv_err_t err = uv_last_error(notifier->loop);
       TRACE("start request queue watching: %s (%d)\n", uv_strerror(err), err.code);
     }
   }
+
+  saba_message_queue_unlock(worker->req_queue);
 }
 
 

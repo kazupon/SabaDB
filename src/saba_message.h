@@ -23,6 +23,7 @@ typedef enum {
  */
 typedef struct {
   saba_message_kind_t kind;
+  uv_stream_t *stream;
   void* data;
   ngx_queue_t q; /* private */
 } saba_message_t;

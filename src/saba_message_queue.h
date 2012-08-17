@@ -33,6 +33,8 @@ void saba_message_queue_insert_head(saba_message_queue_t *msg_q, saba_message_t 
 void saba_message_queue_insert_tail(saba_message_queue_t *msg_q, saba_message_t *msg);
 void saba_message_queue_remove(saba_message_queue_t *msg_q, saba_message_t *msg);
 void saba_message_queue_clear(saba_message_queue_t *msg_q);
+void saba_message_queue_lock(saba_message_queue_t *msg_q);
+void saba_message_queue_unlock(saba_message_queue_t *msg_q);
 
 
 #endif /* SABA_MESSAGE_QUEUE_H */

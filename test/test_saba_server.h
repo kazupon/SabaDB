@@ -7,6 +7,7 @@
 
 void test_saba_server_alloc_and_free(void);
 void test_saba_server_start_and_stop(void);
+void test_saba_server_echo(void);
 
 
 #endif /* TEST_SABA_SERVER_H */
