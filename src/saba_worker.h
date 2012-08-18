@@ -36,6 +36,7 @@ typedef struct {
   uv_async_t req_proc_notifier;
   uv_async_t stop_notifier;
   volatile saba_worker_state_t state;
+  ngx_queue_t q;
 } saba_worker_t;
 
 

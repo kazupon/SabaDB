@@ -96,18 +96,17 @@ void on_after_read(uv_stream_t *peer, ssize_t nread, uv_buf_t buf) {
   saba_message_queue_insert_tail(server->req_queue, msg);
   TRACE("put request message\n");
 
-  int32_t i = 0;
-  for (i = 0; i < server->worker_num; i++) {
-    if (server->workers[i]->state == SABA_WORKER_STATE_BUSY) {
-      continue;
-    }
-    /* TODO: should be select a worker */
-    int32_t ret = uv_async_send(&server->workers[i]->req_proc_notifier);
-    if (ret) {
-      uv_err_t err = uv_last_error(loop);
-      TRACE("request proc notifier error: %s (%d)\n", uv_strerror(err), err.code);
-    }
+  ngx_queue_t *q = ngx_queue_head(&server->workers);
+  assert(q != NULL);
+  ngx_queue_remove(q);
+  saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
+  assert(worker != NULL);
+  int32_t ret = uv_async_send(&worker->req_proc_notifier);
+  if (ret) {
+    uv_err_t err = uv_last_error(loop);
+    TRACE("request proc notifier error: %s (%d)\n", uv_strerror(err), err.code);
   }
+  ngx_queue_insert_tail(&server->workers, &worker->q);
 
   saba_message_queue_unlock(server->req_queue);
 
@@ -253,17 +252,14 @@ saba_server_t* saba_server_alloc(int32_t worker_num) {
   assert(server->req_queue != NULL && server->res_queue != NULL);
   TRACE("req_queue=%p, res_queue=%p\n", server->req_queue, server->res_queue);
 
-  server->worker_num = worker_num;
-  server->workers = (saba_server_t **)malloc(sizeof(saba_server_t *) * worker_num);
-  assert(server->workers != NULL);
-
   int32_t i = 0;
-  for (i = 0; i < server->worker_num; i++) {
-    server->workers[i] = saba_worker_alloc();
-    assert(server->workers[i]);
-    server->workers[i]->master = server;
-    server->workers[i]->req_queue = server->req_queue;
-    server->workers[i]->res_queue = server->res_queue;
+  ngx_queue_init(&server->workers);
+  for (i = 0; i < worker_num; i++) {
+    saba_worker_t *worker = saba_worker_alloc();
+    worker->master = server;
+    worker->req_queue = server->req_queue;
+    worker->res_queue = server->res_queue;
+    ngx_queue_insert_tail(&server->workers, &worker->q);
   }
 
   assert(server != NULL);
@@ -274,15 +270,17 @@ void saba_server_free(saba_server_t *server) {
   assert(server != NULL);
   TRACE("server=%p\n", server);
 
-  int32_t i = 0;
-  for (i = 0; i < server->worker_num; i++) {
-    saba_worker_t *worker = server->workers[i];
+  while (!ngx_queue_empty(&server->workers)) {
+    ngx_queue_t *q = ngx_queue_head(&server->workers);
+    assert(q != NULL);
+    ngx_queue_remove(q);
+    saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
+    assert(worker != NULL);
     worker->master = NULL;
     worker->req_queue = NULL;
     worker->res_queue = NULL;
     saba_worker_free(worker);
   }
-  server->worker_num = 0;
 
   saba_message_queue_free(server->req_queue);
   saba_message_queue_free(server->res_queue);
@@ -345,10 +343,10 @@ saba_err_t saba_server_start(
     return SABA_ERR_NG;
   }
 
-  int32_t i = 0;
-  for (i = 0; i < server->worker_num; i++) {
-    assert(server->workers[i]);
-    saba_err_t err = saba_worker_start(server->workers[i]);
+  ngx_queue_t *q;
+  ngx_queue_foreach(q, &server->workers) {
+    saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
+    saba_err_t err = saba_worker_start(worker);
     TRACE("start worker: err=%d\n", err);
   }
 
@@ -359,11 +357,11 @@ saba_err_t saba_server_stop(saba_server_t *server) {
   assert(server != NULL);
   TRACE("server=%p\n", server);
 
-  int32_t i = 0;
   int32_t ret = 0;
-  for (i = 0; i < server->worker_num; i++) {
-    assert(server->workers[i]);
-    saba_err_t err = saba_worker_stop(server->workers[i]);
+  ngx_queue_t *q;
+  ngx_queue_foreach(q, &server->workers) {
+    saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
+    saba_err_t err = saba_worker_stop(worker);
     ret = err;
     TRACE("stop worker: err=%d\n", err);
   }

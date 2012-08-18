@@ -25,8 +25,7 @@ typedef struct {
   KCDB *db; /* TODO: */
   saba_message_queue_t *req_queue;
   saba_message_queue_t *res_queue;
-  saba_worker_t **workers;
-  int32_t worker_num;
+  ngx_queue_t workers; 
   uv_idle_t res_queue_watcher;
   uv_async_t req_proc_done_notifier;
 } saba_server_t;

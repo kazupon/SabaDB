@@ -103,7 +103,6 @@ void test_saba_server_alloc_and_free(void) {
   saba_server_t *server = saba_server_alloc(worker_num);
 
   CU_ASSERT_PTR_NOT_NULL(server);
-  CU_ASSERT_PTR_NOT_NULL(server->workers);
   CU_ASSERT_PTR_NOT_NULL(server->req_queue);
   CU_ASSERT_PTR_NOT_NULL(server->res_queue);
 
