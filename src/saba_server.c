@@ -110,6 +110,10 @@ void on_after_read(uv_stream_t *peer, ssize_t nread, uv_buf_t buf) {
   }
 
   saba_message_queue_unlock(server->req_queue);
+
+  if (buf.base) {
+    free(buf.base);
+  }
 }
 
 uv_buf_t on_alloc(uv_handle_t *handle, size_t suggested_size) {
