@@ -2,6 +2,7 @@
 #include <CUnit/Basic.h>
 #include "test_saba_utils.h"
 #include "test_saba_message_queue.h"
+#include "test_saba_logger.h"
 #include "test_saba_worker.h"
 #include "test_saba_server.h"
 
@@ -16,6 +17,9 @@ int main() {
   CU_TestInfo utils_tests[] = {
     { "'ARRAY_SIZE' test", test_array_size },
     { "'container_of' test", test_container_of },
+    { "'time' test", test_saba_time },
+    { "'jetlag' test", test_saba_jetlag },
+    { "'date_www_format' test", test_saba_date_www_format },
     CU_TEST_INFO_NULL,
   };
 
@@ -30,6 +34,17 @@ int main() {
     { "message queue 'remove' test", test_saba_message_queue_remove },
     { "message queue 'clear' test", test_saba_message_queue_clear },
     { "message queue 'lock' and 'unlock' test", test_saba_message_queue_lock_and_unlock },
+    CU_TEST_INFO_NULL,
+  };
+
+  CU_TestInfo logger_tests[] = {
+    { "logger 'alloc' and 'free' test", test_saba_logger_alloc_and_free },
+    { "logger 'open' with specific path and 'close' test", test_saba_logger_open_with_specific_path_and_close },
+    { "logger 'open' with already specific path and 'close' test", test_saba_logger_open_with_already_specific_path_and_close },
+    { "logger sync 'open' and 'close' test", test_saba_logger_sync_open_and_close },
+    { "logger 'log' test", test_saba_logger_log },
+    { "logger sync 'log' test", test_saba_logger_sync_log },
+    { "logger 'log' test by thread", test_saba_logger_log_by_thread },
     CU_TEST_INFO_NULL,
   };
 
@@ -49,6 +64,7 @@ int main() {
   CU_SuiteInfo suites[] = {
     { "utils tests", NULL, NULL, utils_tests },
     { "message & message queue tests", NULL, NULL, msg_q_tests },
+    { "logger tests", NULL, NULL, logger_tests },
     { "worker tests", NULL, NULL, worker_tests },
     { "server tests", NULL, NULL, server_tests },
     CU_SUITE_INFO_NULL,

@@ -17,5 +17,10 @@
     ( (type *)( (char *)(ptr) - offsetof(type, member) ) )
 
 
+double saba_time();
+int32_t saba_jetlag();
+void saba_date_www_format(double t, int32_t jl, int32_t acr, char *buf);
+
+
 #endif /* SABA_UTILS_H */
 
