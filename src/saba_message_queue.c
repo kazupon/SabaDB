@@ -26,8 +26,8 @@ void saba_message_queue_free(saba_message_queue_t *msg_q) {
   saba_message_queue_clear(msg_q);
   saba_message_queue_unlock(msg_q);
 
-  free(msg_q);
   uv_mutex_destroy(&msg_q->mtx);
+  free(msg_q);
 }
 
 bool saba_message_queue_is_empty(saba_message_queue_t *msg_q) {
