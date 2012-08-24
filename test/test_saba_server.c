@@ -22,11 +22,7 @@ static uv_timer_t echo_timer;
 static saba_err_t stop_ret = 0;
 
 
-/*
- * handlers
- */
-
-void on_stop_timer(uv_timer_t *timer, int status) {
+static void on_stop_timer(uv_timer_t *timer, int status) {
   TRACE("timer=%p, status=%d\n", timer, status);
   saba_server_t *server = (saba_server_t *)timer->data;
 
@@ -36,12 +32,12 @@ void on_stop_timer(uv_timer_t *timer, int status) {
   timer->data = NULL;
 }
 
-uv_buf_t on_alloc_buf(uv_handle_t *tcp, size_t size) {
+static uv_buf_t on_alloc_buf(uv_handle_t *tcp, size_t size) {
   TRACE("tcp=%p, size=%zd\n", tcp, size);
   return uv_buf_init(malloc(size), size);
 }
 
-void on_read(uv_stream_t *tcp, ssize_t nread, uv_buf_t buf) {
+static void on_read(uv_stream_t *tcp, ssize_t nread, uv_buf_t buf) {
   TRACE("tcp=%p, nread=%zd, buf=%p, buf.base=%s\n", tcp, nread, &buf, buf.base);
   echo_t *echo = container_of(tcp, echo_t, tcp);
 
@@ -67,12 +63,12 @@ void on_read(uv_stream_t *tcp, ssize_t nread, uv_buf_t buf) {
   }
 }
 
-void on_write(uv_write_t *req, int status) {
+static void on_write(uv_write_t *req, int status) {
   TRACE("req=%p, status=%d\n", req, status);
   free(req);
 }
 
-void on_write_timer(uv_timer_t *timer, int status) {
+static void on_write_timer(uv_timer_t *timer, int status) {
   TRACE("timer=%p, status=%d\n", timer, status);
   echo_t *echo = (echo_t *)timer->data;
 
@@ -85,7 +81,7 @@ void on_write_timer(uv_timer_t *timer, int status) {
   }
 }
 
-void on_connect(uv_connect_t *connection, int status) {
+static void on_connect(uv_connect_t *connection, int status) {
   TRACE("connection=%p, status=%d\n", connection, status);
   echo_t *echo = container_of(connection, echo_t, connection);
 
@@ -95,9 +91,6 @@ void on_connect(uv_connect_t *connection, int status) {
 }
 
 
-/*
- * tests
- */
 void test_saba_server_alloc_and_free(void) {
   int32_t worker_num = 2;
   saba_server_t *server = saba_server_alloc(worker_num);
@@ -126,7 +119,7 @@ void test_saba_server_start_and_stop(void) {
   saba_server_free(server);
 }
 
-void echo(int32_t worker_num, int32_t echo_count) {
+static void echo(int32_t worker_num, int32_t echo_count) {
   uv_loop_t *loop = uv_default_loop();
   ECHO_COUNT = echo_count;
   saba_server_t *server = saba_server_alloc(worker_num);

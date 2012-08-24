@@ -7,9 +7,6 @@
 #define SABA_SERVER_H
 
 
-/*
-#include <inttypes.h>
-*/
 #include <uv.h>
 #include <kclangc.h>
 #include "saba_common.h"
@@ -20,7 +17,8 @@
 /*
  * server
  */
-typedef struct {
+
+typedef struct saba_server_s {
   uv_tcp_t tcp;
   KCDB *db; /* TODO: */
   saba_message_queue_t *req_queue;
@@ -32,8 +30,9 @@ typedef struct {
 
 
 /*
- * server prototype(s)
+ * server prototypes
  */
+
 saba_server_t* saba_server_alloc(int32_t worker_num);
 void saba_server_free(saba_server_t *server);
 saba_err_t saba_server_start(saba_server_t *server, uv_loop_t *loop, const char *address, uint16_t port);

@@ -11,12 +11,12 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
-#include "saba_utils.h"
 #include "saba_common.h"
+#include "saba_utils.h"
 
 
 /*
- * macro(s)
+ * macros
  */
 
 #define SABA_LOGGER_MSG(logger, format, ...) \
@@ -31,7 +31,6 @@
 #define SABA_LOGGER_LOG(logger, loop, cb, level, format, ...) \
   SABA_LOGGER_MSG(logger, format, ##__VA_ARGS__); \
   saba_logger_log(logger, loop, cb, SABA_LOGGER_LEVEL_ ## level, logger->msg_buf)
-
 
 
 typedef struct saba_logger_s saba_logger_t; /* logger declar */

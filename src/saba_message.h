@@ -13,14 +13,17 @@
 /*
  * message kind
  */
+
 typedef enum {
   SABA_MESSAGE_KIND_UNKNOWN,
   SABA_MESSAGE_KIND_ECHO,
 } saba_message_kind_t;
 
+
 /*
  * message
  */
+
 typedef struct {
   saba_message_kind_t kind;
   uv_stream_t *stream;
@@ -30,8 +33,9 @@ typedef struct {
 
 
 /*
- * message prototype(s)
+ * message prototypes
  */
+
 saba_message_t* saba_message_alloc(void);
 void saba_message_free(saba_message_t *msg);
 

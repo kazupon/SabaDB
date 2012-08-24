@@ -12,11 +12,13 @@
 #include "saba_message_queue.h"
 
 
-struct saba_server_s; /* forward reference */
+struct saba_server_s; /* server declar */
+
 
 /*
  * worker state
  */
+
 typedef enum {
   SABA_WORKER_STATE_IDLE,
   SABA_WORKER_STATE_BUSY,
@@ -24,9 +26,11 @@ typedef enum {
   SABA_WORKER_STATE_STOP,
 } saba_worker_state_t;
 
+
 /*
  * worker
  */
+
 typedef struct {
   uv_thread_t tid;
   saba_message_queue_t *req_queue;
@@ -41,8 +45,9 @@ typedef struct {
 
 
 /*
- * worker prototype(s)
+ * worker prototypes
  */
+
 saba_worker_t* saba_worker_alloc(void);
 void saba_worker_free(saba_worker_t *worker);
 saba_err_t saba_worker_start(saba_worker_t *worker);

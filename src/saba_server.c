@@ -12,6 +12,10 @@
 #include <stdlib.h>
 
 
+/*
+ * internal defines
+ */
+
 typedef struct {
   uv_write_t req;
   uv_buf_t buf;
@@ -23,18 +27,18 @@ typedef struct {
  * event handlers
  */
 
-void on_close(uv_handle_t *handle, int status) {
+static void on_close(uv_handle_t *handle, int status) {
   TRACE("handle=%p, status=%d\n", handle, status);
   free(handle);
 }
 
-void on_after_shutdown(uv_shutdown_t *req, int status) {
+static void on_after_shutdown(uv_shutdown_t *req, int status) {
   TRACE("req=%p, status=%d\n", req, status);
   uv_close((uv_handle_t *)req->handle, on_close);
   free(req);
 }
 
-void on_after_write(uv_write_t *req, int status) {
+static void on_after_write(uv_write_t *req, int status) {
   TRACE("req=%p, status=%d\n", req, status);
   assert(req != NULL);
 
@@ -61,7 +65,7 @@ void on_after_write(uv_write_t *req, int status) {
   free(wr);
 }
 
-void on_after_read(uv_stream_t *peer, ssize_t nread, uv_buf_t buf) {
+static void on_after_read(uv_stream_t *peer, ssize_t nread, uv_buf_t buf) {
   TRACE("peer=%p, nread=%zd, buf=%p, buf.base=%s\n", peer, nread, &buf, buf.base);
   assert(peer != NULL);
 
@@ -115,12 +119,12 @@ void on_after_read(uv_stream_t *peer, ssize_t nread, uv_buf_t buf) {
   }
 }
 
-uv_buf_t on_alloc(uv_handle_t *handle, size_t suggested_size) {
+static uv_buf_t on_alloc(uv_handle_t *handle, size_t suggested_size) {
   TRACE("handle=%p, suggested_size=%ld\n", handle, suggested_size);
   return uv_buf_init(malloc(suggested_size), suggested_size);
 }
 
-void on_connection(uv_stream_t *tcp, int status) {
+static void on_connection(uv_stream_t *tcp, int status) {
   TRACE("tcp=%p, status=%d\n", tcp, status);
   assert(tcp != NULL);
 
@@ -165,7 +169,7 @@ void on_connection(uv_stream_t *tcp, int status) {
   assert(ret == 0);
 }
 
-void on_watch_res_queue(uv_idle_t *watcher, int status) {
+static void on_watch_res_queue(uv_idle_t *watcher, int status) {
   assert(watcher != NULL && status == 0);
   TRACE("watcher=%p, status=%d\n", watcher, status);
 
@@ -215,7 +219,7 @@ void on_watch_res_queue(uv_idle_t *watcher, int status) {
   }
 }
 
-void on_notify_req_proc_done(uv_async_t *notifier, int status) {
+static void on_notify_req_proc_done(uv_async_t *notifier, int status) {
   assert(notifier != NULL && status == 0);
   TRACE("notifier=%p, status=%d\n", notifier, status);
 
@@ -239,7 +243,7 @@ void on_notify_req_proc_done(uv_async_t *notifier, int status) {
 
 
 /*
- * saba_server_t implements
+ * server implements
  */
 
 saba_server_t* saba_server_alloc(int32_t worker_num) {

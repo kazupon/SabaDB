@@ -85,7 +85,6 @@ void saba_message_queue_remove(saba_message_queue_t *msg_q, saba_message_t *msg)
   saba_message_t *w = NULL;
   ngx_queue_foreach(q, &msg_q->queue) {
     w = ngx_queue_data(q, saba_message_t, q);
-    TRACE("foreach: msg=%p\n", w);
   }
   ngx_queue_remove(&msg->q);
 }
@@ -113,3 +112,4 @@ void saba_message_queue_unlock(saba_message_queue_t *msg_q) {
   assert(msg_q != NULL);
   uv_mutex_unlock(&msg_q->mtx);
 }
+

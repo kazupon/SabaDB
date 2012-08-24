@@ -15,6 +15,7 @@
 /*
  * message queue
  */
+
 typedef struct {
   ngx_queue_t queue; /* private */
   uv_mutex_t mtx; /* private */
@@ -22,8 +23,9 @@ typedef struct {
 
 
 /*
- * message queue prototype(s)
+ * message queue prototypes
  */
+
 saba_message_queue_t* saba_message_queue_alloc(void);
 void saba_message_queue_free(saba_message_queue_t *msg_q);
 bool saba_message_queue_is_empty(saba_message_queue_t *msg_q);

@@ -15,7 +15,7 @@
  * event handlers
  */
 
-void on_notify_stopping(uv_async_t *notifier, int status) {
+static void on_notify_stopping(uv_async_t *notifier, int status) {
   TRACE("notifier=%p, status=%d\n", notifier, status);
   
   saba_worker_t *worker = container_of(notifier, saba_worker_t, stop_notifier);
@@ -45,7 +45,7 @@ void on_notify_stopping(uv_async_t *notifier, int status) {
   }
 }
 
-void on_watch_req_queue(uv_idle_t *watcher, int status) {
+static void on_watch_req_queue(uv_idle_t *watcher, int status) {
   assert(watcher != NULL && status == 0);
   TRACE("watcher=%p, status=%d\n", watcher, status);
 
@@ -111,7 +111,7 @@ void on_watch_req_queue(uv_idle_t *watcher, int status) {
   saba_message_queue_unlock(worker->res_queue);
 }
 
-void on_notify_req_proc(uv_async_t *notifier, int status) {
+static void on_notify_req_proc(uv_async_t *notifier, int status) {
   TRACE("notifier=%p, status=%d\n", notifier, status);
   
   saba_worker_t *worker = container_of(notifier, saba_worker_t, req_proc_notifier);
@@ -136,7 +136,7 @@ void on_notify_req_proc(uv_async_t *notifier, int status) {
 /* 
  * thread entry point
  */
-void do_work(void *arg) {
+static void do_work(void *arg) {
   TRACE("arg=%p\n", arg);
   saba_worker_t *worker = (saba_worker_t *)arg;
   assert(worker != NULL);
@@ -193,7 +193,7 @@ void do_work(void *arg) {
 
 
 /*
- * saba_worker_t implements
+ * worker implements
  */
 
 saba_worker_t* saba_worker_alloc(void) {

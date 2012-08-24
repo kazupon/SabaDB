@@ -14,24 +14,34 @@
 #include <uv.h>
 
 
+/*
+ * internal defines
+ */
+
 typedef struct {
   saba_logger_t *logger;
   saba_server_t *server;
   uv_loop_t *loop;
 } saba_bootstrap_info_t;
 
-static uv_idle_t bootstrap;
-static saba_bootstrap_info_t bootstrap_info;
-
 
 /*
- * prototype(s)
+ * internal prototypes
  */
+
 static void on_signal(int signo);
 static void on_logger_open(saba_logger_t *logger, saba_err_t ret);
 static void on_logger_close(saba_logger_t *logger, saba_err_t ret);
 static void on_logger_log(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret);
 static void on_boot(uv_idle_t *handle, int status);
+
+
+/*
+ * internal variables
+ */
+
+static uv_idle_t bootstrap;
+static saba_bootstrap_info_t bootstrap_info;
 
 
 /*
@@ -119,32 +129,4 @@ int main () {
   saba_logger_free(bootstrap_info.logger);
 
   return ret;
-  /*
-  logger = saba_logger_alloc();
-  assert(logger != NULL);
-  logger->level = SABA_LOGGER_LEVEL_ALL;
-
-  int32_t worker_num = 8;
-  server = saba_server_alloc(worker_num);
-  assert(server != NULL);
-
-  signal(SIGINT, &on_signal);
-  signal(SIGTERM, &on_signal);
-  signal(SIGPIPE, SIG_IGN);
-
-  loop = uv_default_loop();
-
-  saba_logger_open(logger, loop, "./sabadb.log", NULL);
-
-  int32_t ret = saba_server_start(server, loop, "0.0.0.0", 1978);
-  TRACE("server start: ret=%d\n", ret);
-  saba_logger_log(logger, loop, SABA_LOGGER_LEVEL_INFO, "server start ...\n", on_logger_log);
-
-  ret = uv_run(loop);
-
-  saba_server_free(server);
-  saba_logger_free(logger);
-
-  return ret;
-  */
 }
