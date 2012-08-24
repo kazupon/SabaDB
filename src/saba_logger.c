@@ -12,16 +12,24 @@
 
 
 /*
- * prototype(s)
+ * internal prototype
  */
-int32_t _saba_logger_log_impl(
+
+static int32_t _saba_logger_log_impl(
   saba_logger_t *logger, uv_loop_t *loop, saba_logger_level_t level, const char *msg
 );
 
+/*
+ * internal macro
+ */
 
 #define SABA_LOGGER_REQ_CMN_FIELDS \
   uv_fs_t req; \
   saba_logger_t *logger
+
+/*
+ * internal defines
+ */
 
 typedef struct {
   SABA_LOGGER_REQ_CMN_FIELDS;
@@ -41,6 +49,11 @@ typedef struct {
   int32_t result;
 } saba_logger_log_req_t;
   
+
+/*
+ * internal variables
+ */
+
 static saba_logger_open_req_t open_req;
 static saba_logger_close_req_t close_req;
 static uv_fs_t write_req;
@@ -134,6 +147,8 @@ saba_logger_t* saba_logger_alloc() {
   logger->is_output_display = true;
   logger->path = NULL;
   logger->fd = -1;
+  memset(logger->date_buf, 0, sizeof(logger->date_buf));
+  memset(logger->msg_buf, 0, sizeof(logger->msg_buf));
   
   uv_mutex_init(&logger->mtx);
 
@@ -198,7 +213,7 @@ saba_err_t saba_logger_close(saba_logger_t *logger, uv_loop_t *loop, saba_logger
   return (ret < 0 ? SABA_ERR_NG : SABA_ERR_OK);
 }
 
-int32_t _saba_logger_log_impl(
+static int32_t _saba_logger_log_impl(
   saba_logger_t *logger, uv_loop_t *loop, saba_logger_level_t level, const char *msg) {
   assert(logger != NULL && loop != NULL);
   /* TODO: should be check arguments */

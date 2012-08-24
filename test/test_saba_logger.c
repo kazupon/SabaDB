@@ -56,7 +56,7 @@ static void on_open(saba_logger_t *logger, saba_err_t err) {
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 }
 
-void on_test_saba_logger_open_with_specific_path_and_close(uv_idle_t *handle, int status) {
+static void on_test_saba_logger_open_with_specific_path_and_close(uv_idle_t *handle, int status) {
   uv_idle_stop(&idle);
 
   saba_logger_t *logger = saba_logger_alloc();
@@ -81,7 +81,7 @@ void test_saba_logger_open_with_specific_path_and_close(void) {
 }
 
 
-void on_test_saba_logger_open_with_already_specific_path_and_close(uv_idle_t *handle, int status) {
+static void on_test_saba_logger_open_with_already_specific_path_and_close(uv_idle_t *handle, int status) {
   uv_idle_stop(&idle);
 
   saba_logger_t *logger = saba_logger_alloc();
@@ -105,7 +105,7 @@ void test_saba_logger_open_with_already_specific_path_and_close(void) {
 }
 
 
-void on_test_saba_logger_sync_open_and_close(uv_idle_t *handle, int status) {
+static void on_test_saba_logger_sync_open_and_close(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
 
   saba_logger_t *logger = saba_logger_alloc();
@@ -139,7 +139,7 @@ void test_saba_logger_sync_open_and_close(void) {
 }
 
 
-void write_log(saba_logger_t *logger, uv_loop_t *loop, saba_logger_log_cb cb) {
+static void write_log(saba_logger_t *logger, uv_loop_t *loop, saba_logger_log_cb cb) {
   saba_logger_level_t set_levels[] = {
     SABA_LOGGER_LEVEL_DEBUG,
     SABA_LOGGER_LEVEL_INFO,
@@ -181,7 +181,7 @@ void write_log(saba_logger_t *logger, uv_loop_t *loop, saba_logger_log_cb cb) {
   }
 }
 
-void on_log(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret) {
+static void on_log(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret) {
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
   CU_ASSERT_TRUE(
     level & SABA_LOGGER_LEVEL_ERROR || 
@@ -198,7 +198,7 @@ void on_log(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret) {
   }
 }
 
-void on_test_saba_logger_log(uv_idle_t *handle, int status) {
+static void on_test_saba_logger_log(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
 
   uv_loop_t *loop = handle->loop;
@@ -222,7 +222,7 @@ void test_saba_logger_log(void) {
 }
 
 
-void on_test_saba_logger_sync_log(uv_idle_t *handle, int status) {
+static void on_test_saba_logger_sync_log(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   uv_loop_t *loop = handle->loop;
 
@@ -249,7 +249,7 @@ void test_saba_logger_sync_log(void) {
 }
 
 
-void on_log_thread(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret) {
+static void on_log_thread(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret) {
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
   CU_ASSERT_TRUE(
     level & SABA_LOGGER_LEVEL_ERROR || 
@@ -264,7 +264,7 @@ void on_log_thread(saba_logger_t *logger, saba_logger_level_t level, saba_err_t 
   uv_mutex_unlock(&log_cb_count_mtx);
 }
 
-void make_msg(char buf[], int32_t buf_len, const char *msg) {
+static void make_msg(char buf[], int32_t buf_len, const char *msg) {
   char date[48];
   memset(date, 0, sizeof(date));
   saba_date_www_format(NAN, INT32_MAX, 6, date);
@@ -272,7 +272,7 @@ void make_msg(char buf[], int32_t buf_len, const char *msg) {
   snprintf(buf, buf_len, "%s %s", date, msg);
 }
 
-void log_thread(void *arg) {
+static void log_thread(void *arg) {
   saba_logger_t *logger = (saba_logger_t *)arg;
 
   uv_loop_t *loop = uv_loop_new();
@@ -296,7 +296,7 @@ void log_thread(void *arg) {
   uv_loop_delete(loop);
 }
 
-void on_test_saba_logger_log_by_thread(uv_idle_t *handle, int status) {
+static void on_test_saba_logger_log_by_thread(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   uv_loop_t *loop = handle->loop;
 
@@ -338,4 +338,41 @@ void test_saba_logger_log_by_thread(void) {
   unlink(PATH);
 }
 
+
+static void on_log_macro(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret) {
+  CU_ASSERT_PTR_NOT_NULL(logger);
+  CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
+  saba_logger_close(logger, uv_default_loop(), NULL);
+  saba_logger_free(logger);
+  on_log_cb_count++;
+  uv_close((uv_handle_t *)&idle, NULL);
+}
+
+static void on_test_saba_logger_macro(uv_idle_t *handle, int status) {
+  uv_idle_stop(handle);
+  uv_loop_t *loop = handle->loop;
+
+  saba_logger_t *logger = saba_logger_alloc();
+  logger->level = SABA_LOGGER_LEVEL_ALL;
+  saba_logger_open(logger, loop, PATH, NULL);
+
+  SABA_LOGGER_LOG(logger, loop, NULL, DEBUG, "debug %d, %s, %.2f\n", 11, "hello", 1.222);
+  SABA_LOGGER_LOG(logger, loop, NULL, TRACE, "trace %d, %s, %.2f\n", 11, "hello", 1.222);
+  SABA_LOGGER_LOG(logger, loop, NULL, INFO, "info");
+  SABA_LOGGER_LOG(logger, loop, NULL, WARN, "warn %x, %p", logger, loop);
+  SABA_LOGGER_LOG(logger, loop, on_log_macro, ERROR, "error !!\n");
+}
+
+void test_saba_logger_macro(void) {
+  on_log_cb_count = 0;
+  unlink(PATH);
+
+  uv_loop_t *loop = uv_default_loop();
+  uv_idle_init(loop, &idle);
+  uv_idle_start(&idle, on_test_saba_logger_macro);
+  uv_run(loop);
+
+  CU_ASSERT_EQUAL(on_log_cb_count, 1);
+  unlink(PATH);
+}
 

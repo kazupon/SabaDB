@@ -45,6 +45,7 @@ int main() {
     { "logger 'log' test", test_saba_logger_log },
     { "logger sync 'log' test", test_saba_logger_sync_log },
     { "logger 'log' test by thread", test_saba_logger_log_by_thread },
+    { "logger macro test", test_saba_logger_macro },
     CU_TEST_INFO_NULL,
   };
 
