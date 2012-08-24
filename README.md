@@ -1,5 +1,5 @@
 # SabaDB
-Event driven cache/storage server
+Pluggabule event driven cache/storage server
 
 
 # Overview
