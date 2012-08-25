@@ -66,7 +66,6 @@ struct saba_logger_s {
   /* public */
   saba_logger_level_t level;
   bool is_output_display;
-  void *data;
   const char *path;
   /* public */
   /* private */
