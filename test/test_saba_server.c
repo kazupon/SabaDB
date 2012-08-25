@@ -1,12 +1,18 @@
 #include "test_saba_server.h"
+#include <CUnit/CUnit.h>
+#include <CUnit/Basic.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <uv.h>
 #include "debug.h"
 #include "saba_utils.h"
 #include "saba_common.h"
 #include "saba_message_queue.h"
-#include <CUnit/CUnit.h>
-#include <CUnit/Basic.h>
-#include <unistd.h>
-#include <uv.h>
+#include "saba_logger.h"
+
+
+static void on_write_timer(uv_timer_t *handle, int status);
 
 
 typedef struct {
@@ -16,78 +22,67 @@ typedef struct {
   uint64_t count;
 } echo_t;
 
-static uint64_t ECHO_COUNT;
-static uv_timer_t stop_timer;
-static uv_timer_t echo_timer;
-static saba_err_t stop_ret = 0;
+typedef struct {
+  saba_logger_t *logger;
+  saba_server_t *server;
+  uv_tcp_t tcp;
+  uv_connect_t connection;
+  uint64_t count;
+} cu_test_server_t;
 
-
-static void on_stop_timer(uv_timer_t *timer, int status) {
-  TRACE("timer=%p, status=%d\n", timer, status);
-  saba_server_t *server = (saba_server_t *)timer->data;
-
-  stop_ret = saba_server_stop(server);
-  uv_timer_stop(timer);
-  uv_close((uv_handle_t *)timer, NULL);
-  timer->data = NULL;
-}
-
-static uv_buf_t on_alloc_buf(uv_handle_t *tcp, size_t size) {
-  TRACE("tcp=%p, size=%zd\n", tcp, size);
-  return uv_buf_init(malloc(size), size);
-}
-
-static void on_read(uv_stream_t *tcp, ssize_t nread, uv_buf_t buf) {
-  TRACE("tcp=%p, nread=%zd, buf=%p, buf.base=%s\n", tcp, nread, &buf, buf.base);
-  echo_t *echo = container_of(tcp, echo_t, tcp);
-
-  if (nread < 0) {
-    CU_ASSERT(uv_last_error(tcp->loop).code == UV_EOF);
-    uv_timer_stop(&echo_timer);
-    saba_server_t *server = (saba_server_t *)echo->server;
-    saba_server_stop(server);
-    uv_close((uv_handle_t *)tcp, NULL);
-    return;
-  }
-
-  if (!strcmp("hello", buf.base)) {
-    echo->count++;
-    saba_server_t *server = echo->server;
-    TRACE("count=%lld\n", echo->count);
-    if (echo->count == ECHO_COUNT) {
-      uv_timer_stop(&echo_timer);
-      saba_server_t *server = (saba_server_t *)echo->server;
-      saba_server_stop(server);
-      uv_close((uv_handle_t *)tcp, NULL);
-    }
-  }
-}
-
-static void on_write(uv_write_t *req, int status) {
-  TRACE("req=%p, status=%d\n", req, status);
-  free(req);
-}
-
-static void on_write_timer(uv_timer_t *timer, int status) {
-  TRACE("timer=%p, status=%d\n", timer, status);
-  echo_t *echo = (echo_t *)timer->data;
-
+typedef struct {
+  uv_write_t req;
   uv_buf_t buf;
-  buf.base = "hello";
-  buf.len = strlen(buf.base);
-  uv_write_t *req = (uv_write_t *)malloc(sizeof(uv_write_t));
-  if (uv_write(req, (uv_stream_t *)&echo->tcp, &buf, 1, on_write)) {
-    CU_FAIL("uv_write failed\n");
-  }
+} cu_write_req_t;
+
+static const char *PATH = "./hoge.log";
+static uint64_t ECHO_COUNT;
+static cu_test_server_t data;
+static uv_idle_t bootstraper;
+static uv_timer_t echo_timer;
+
+
+static void on_setup(uv_idle_t *handle, int status) {
+  uv_idle_stop(handle);
+  cu_test_server_t *d = (cu_test_server_t *)handle->data;
+  saba_err_t ret = saba_logger_open(d->logger, handle->loop, PATH, NULL);
+  uv_close((uv_handle_t *)handle, NULL);
 }
 
-static void on_connect(uv_connect_t *connection, int status) {
-  TRACE("connection=%p, status=%d\n", connection, status);
-  echo_t *echo = container_of(connection, echo_t, connection);
-
-  if (uv_read_start(connection->handle, on_alloc_buf, on_read)) {
-    CU_FAIL("uv_read_start failed\n");
+int test_saba_server_setup(void) {
+  unlink(PATH);
+  data.logger = saba_logger_alloc();
+  uv_loop_t *loop = uv_default_loop();
+  uv_idle_init(loop, &bootstraper);
+  bootstraper.data = &data;
+  uv_idle_start(&bootstraper, on_setup);
+  int32_t ret = uv_run(loop);
+  if (ret) {
+    saba_logger_free(data.logger);
+    data.logger = NULL;
+    return 1;
   }
+  return 0;
+}
+
+
+static void on_teardown(uv_idle_t *handle, int status) {
+  uv_idle_stop(handle);
+  cu_test_server_t *d = (cu_test_server_t *)handle->data;
+  saba_err_t ret = saba_logger_close(d->logger, handle->loop, NULL);
+  uv_close((uv_handle_t *)handle, NULL);
+}
+
+int test_saba_server_teardown(void) {
+  uv_loop_t *loop = uv_default_loop();
+  uv_idle_init(loop, &bootstraper);
+  bootstraper.data = &data;
+  uv_idle_start(&bootstraper, on_teardown);
+  int32_t ret = uv_run(loop);
+  saba_logger_free(data.logger);
+  data.logger = NULL;
+  unlink(PATH);
+  return ret;
 }
 
 
@@ -98,51 +93,150 @@ void test_saba_server_alloc_and_free(void) {
   CU_ASSERT_PTR_NOT_NULL(server);
   CU_ASSERT_PTR_NOT_NULL(server->req_queue);
   CU_ASSERT_PTR_NOT_NULL(server->res_queue);
+  CU_ASSERT_PTR_NULL(server->logger);
 
   saba_server_free(server);
+}
+
+
+static void on_server_stop(uv_idle_t *handle, int status) {
+  uv_idle_stop(handle);
+  cu_test_server_t *d = (cu_test_server_t *)handle->data;
+
+  usleep(1000 * 100);
+
+  saba_err_t ret = saba_server_stop(d->server);
+  CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
+
+  uv_close((uv_handle_t *)handle, NULL);
+}
+
+static void on_test_saba_server_start_and_stop(uv_idle_t *handle, int status) {
+  uv_idle_stop(handle);
+  cu_test_server_t *d = (cu_test_server_t *)handle->data;
+
+  saba_err_t ret = saba_server_start(d->server, handle->loop, "0.0.0.0", 1978);
+  CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
+
+  uv_idle_start(handle, on_server_stop);
 }
 
 void test_saba_server_start_and_stop(void) {
   uv_loop_t *loop = uv_default_loop();
   int32_t worker_num = 1;
-  saba_server_t *server = saba_server_alloc(worker_num);
+  data.server = saba_server_alloc(worker_num);
+  data.server->logger = data.logger;
 
-  uv_timer_init(loop, &stop_timer);
-  uv_timer_start(&stop_timer, on_stop_timer, 100, 1);
-  stop_timer.data = server;
-
-  CU_ASSERT_EQUAL(saba_server_start(server, loop, "0.0.0.0", 1978), SABA_ERR_OK);
+  uv_idle_init(loop, &bootstraper);
+  bootstraper.data = &data;
+  uv_idle_start(&bootstraper, on_test_saba_server_start_and_stop);
 
   uv_run(loop);
-  CU_ASSERT_EQUAL(stop_ret, SABA_ERR_OK);
 
-  saba_server_free(server);
+  saba_server_free(data.server);
+}
+
+
+static uv_buf_t on_alloc_buf(uv_handle_t *tcp, size_t size) {
+  TRACE("tcp=%p, size=%zd\n", tcp, size);
+  return uv_buf_init(malloc(size), size);
+}
+
+static void on_read(uv_stream_t *tcp, ssize_t nread, uv_buf_t buf) {
+  TRACE("tcp=%p, nread=%zd, buf=%p\n", tcp, nread, &buf);
+  cu_test_server_t *d = container_of(tcp, cu_test_server_t, tcp);
+
+  if (nread < 0) {
+    CU_ASSERT(uv_last_error(tcp->loop).code == UV_EOF);
+    uv_timer_stop(&echo_timer);
+    saba_server_stop(d->server);
+    uv_close((uv_handle_t *)tcp, NULL);
+    uv_close((uv_handle_t *)&echo_timer, NULL);
+  } else {
+    d->count++;
+    TRACE("count=%lld\n", d->count);
+    if (d->count == ECHO_COUNT) {
+      uv_timer_stop(&echo_timer);
+      saba_server_stop(d->server);
+      uv_close((uv_handle_t *)tcp, NULL);
+      uv_close((uv_handle_t *)&echo_timer, NULL);
+    }
+  }
+
+  if (buf.base) {
+    free(buf.base);
+  }
+}
+
+static void on_write(uv_write_t *req, int status) {
+  TRACE("req=%p, status=%d\n", req, status);
+
+  cu_write_req_t *r = container_of(req, cu_write_req_t, req);
+  if (r->buf.base) {
+    free(r->buf.base);
+  }
+  free(r);
+
+  uv_timer_start(&echo_timer, on_write_timer, 1, 5);
+}
+
+static void on_write_timer(uv_timer_t *handle, int status) {
+  TRACE("handle=%p, status=%d\n", handle, status);
+  cu_test_server_t *d = (cu_test_server_t *)handle->data;
+  uv_timer_stop(handle);
+
+  cu_write_req_t *req = (cu_write_req_t *)malloc(sizeof(cu_write_req_t));
+  req->buf.base = strdup("hello");
+  req->buf.len = strlen(req->buf.base);
+  if (uv_write(&req->req, (uv_stream_t *)&d->tcp, &req->buf, 1, on_write)) {
+    CU_FAIL("uv_write failed\n");
+  }
+}
+
+static void on_connect(uv_connect_t *connection, int status) {
+  TRACE("connection=%p, status=%d\n", connection, status);
+  cu_test_server_t *d = container_of(connection, cu_test_server_t, connection);
+
+  if (uv_read_start(connection->handle, on_alloc_buf, on_read)) {
+    CU_FAIL("uv_read_start failed\n");
+  }
+
+  uv_timer_init(connection->handle->loop, &echo_timer);
+  echo_timer.data = d;
+  uv_timer_start(&echo_timer, on_write_timer, 1, 5);
+}
+
+static void on_boot_echo(uv_idle_t *handle, int status) {
+  uv_idle_stop(handle);
+  cu_test_server_t *d = (cu_test_server_t *)handle->data;
+
+  saba_server_start(d->server, handle->loop, "0.0.0.0", 1978);
+  
+  /* setup client */
+  struct sockaddr_in client_addr = uv_ip4_addr("0.0.0.0", 0);
+  struct sockaddr_in server_addr = uv_ip4_addr("127.0.0.1", 1978);
+  uv_tcp_init(handle->loop, &d->tcp);
+  uv_tcp_bind(&d->tcp, client_addr);
+  uv_tcp_connect(&d->connection, &d->tcp, server_addr, on_connect);
+  d->count = 0;
+  
+  uv_close((uv_handle_t *)handle, NULL);
 }
 
 static void echo(int32_t worker_num, int32_t echo_count) {
   uv_loop_t *loop = uv_default_loop();
+  data.server = saba_server_alloc(worker_num);
+  data.server->logger = data.logger;
+
   ECHO_COUNT = echo_count;
-  saba_server_t *server = saba_server_alloc(worker_num);
-  saba_server_start(server, loop, "0.0.0.0", 1978);
-
-  /* setup client */
-  echo_t echo;
-  struct sockaddr_in client_addr = uv_ip4_addr("0.0.0.0", 0);
-  struct sockaddr_in server_addr = uv_ip4_addr("127.0.0.1", 1978);
-  uv_tcp_init(loop, &echo.tcp);
-  uv_tcp_bind(&echo.tcp, client_addr);
-  uv_tcp_connect(&echo.connection, &echo.tcp, server_addr, on_connect);
-  echo.count = 0;
-  echo.server = server;
-
-  uv_timer_init(loop, &echo_timer);
-  uv_timer_start(&echo_timer, on_write_timer, 10, 5);
-  echo_timer.data = (void *)&echo;
+  uv_idle_init(loop, &bootstraper);
+  bootstraper.data = &data;
+  uv_idle_start(&bootstraper, on_boot_echo);
 
   uv_run(loop);
 
-  CU_ASSERT_EQUAL(echo.count, ECHO_COUNT);
-  saba_server_free(server);
+  CU_ASSERT_EQUAL(data.count, ECHO_COUNT);
+  saba_server_free(data.server);
 }
 
 void test_saba_server_echo(void) {

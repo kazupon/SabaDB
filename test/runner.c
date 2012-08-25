@@ -67,7 +67,7 @@ int main() {
     { "message & message queue tests", NULL, NULL, msg_q_tests },
     { "logger tests", NULL, NULL, logger_tests },
     { "worker tests", NULL, NULL, worker_tests },
-    { "server tests", NULL, NULL, server_tests },
+    { "server tests", test_saba_server_setup, test_saba_server_teardown, server_tests },
     CU_SUITE_INFO_NULL,
   };
 

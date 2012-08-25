@@ -66,7 +66,7 @@ static void on_after_write(uv_write_t *req, int status) {
 }
 
 static void on_after_read(uv_stream_t *peer, ssize_t nread, uv_buf_t buf) {
-  TRACE("peer=%p, nread=%zd, buf=%p, buf.base=%s\n", peer, nread, &buf, buf.base);
+  TRACE("peer=%p, nread=%zd, buf=%p\n", peer, nread, &buf);
   assert(peer != NULL);
 
   uv_loop_t *loop = peer->loop;
@@ -251,6 +251,7 @@ saba_server_t* saba_server_alloc(int32_t worker_num) {
   assert(server != NULL);
   TRACE("server=%p, tcp=%p\n", server, &server->tcp);
 
+  server->logger = NULL;
   server->req_queue = saba_message_queue_alloc();
   server->res_queue = saba_message_queue_alloc();
   assert(server->req_queue != NULL && server->res_queue != NULL);

@@ -11,6 +11,7 @@
 #include <kclangc.h>
 #include "saba_common.h"
 #include "saba_message_queue.h"
+#include "saba_logger.h"
 #include "saba_worker.h"
 
 
@@ -19,13 +20,18 @@
  */
 
 typedef struct saba_server_s {
+  /* public */
   uv_tcp_t tcp;
   KCDB *db; /* TODO: */
   saba_message_queue_t *req_queue;
   saba_message_queue_t *res_queue;
   ngx_queue_t workers; 
+  saba_logger_t *logger;
+  /* public */
+  /* private */
   uv_idle_t res_queue_watcher;
   uv_async_t req_proc_done_notifier;
+  /* private */
 } saba_server_t;
 
 
