@@ -29,8 +29,12 @@
   } while (0)
 
 #define SABA_LOGGER_LOG(logger, loop, cb, level, format, ...) \
-  SABA_LOGGER_MSG(logger, format, ##__VA_ARGS__); \
-  saba_logger_log(logger, loop, cb, SABA_LOGGER_LEVEL_ ## level, logger->msg_buf)
+  do { \
+    if (logger && loop) { \
+      SABA_LOGGER_MSG(logger, format, ##__VA_ARGS__); \
+      saba_logger_log(logger, loop, cb, SABA_LOGGER_LEVEL_ ## level, logger->msg_buf); \
+    } \
+  } while (0)
 
 
 typedef struct saba_logger_s saba_logger_t; /* logger declar */
