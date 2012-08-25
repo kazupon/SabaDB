@@ -10,6 +10,7 @@
 #include <uv.h>
 #include "saba_common.h"
 #include "saba_message_queue.h"
+#include "saba_logger.h"
 
 
 struct saba_server_s; /* server declar */
@@ -35,11 +36,12 @@ typedef struct {
   uv_thread_t tid;
   saba_message_queue_t *req_queue;
   saba_message_queue_t *res_queue;
+  saba_logger_t *logger;
+  volatile saba_worker_state_t state;
   struct saba_worker_s *master;
   uv_idle_t queue_watcher;
   uv_async_t req_proc_notifier;
   uv_async_t stop_notifier;
-  volatile saba_worker_state_t state;
   ngx_queue_t q;
 } saba_worker_t;
 

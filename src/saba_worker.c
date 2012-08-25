@@ -204,6 +204,7 @@ saba_worker_t* saba_worker_alloc(void) {
   worker->master = NULL;
   worker->req_queue = NULL;
   worker->res_queue = NULL;
+  worker->logger = NULL;
   worker->state = SABA_WORKER_STATE_STOP;
 
   return worker;

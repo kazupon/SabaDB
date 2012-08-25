@@ -5,6 +5,8 @@
 #include "saba_worker.h"
 
 
+int test_saba_worker_setup(void);
+int test_saba_worker_teardown(void);
 void test_saba_worker_alloc_and_free(void);
 void test_saba_worker_start_and_stop(void);
 
