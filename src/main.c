@@ -53,10 +53,7 @@ static void on_signal(int signo) {
     bootstrap_info.logger != NULL && 
     bootstrap_info.server != NULL && bootstrap_info.loop != NULL
   );
-  saba_logger_log(
-    bootstrap_info.logger, bootstrap_info.loop, NULL, SABA_LOGGER_LEVEL_INFO,
-    "Occured signal\n"
-  );
+  SABA_LOGGER_LOG(bootstrap_info.logger, bootstrap_info.loop, NULL, INFO, "Occured signal '%d'\n", signo);
 
   if (bootstrap_info.logger) {
     saba_logger_close(bootstrap_info.logger, bootstrap_info.loop, NULL);
@@ -106,7 +103,7 @@ static void on_boot(uv_idle_t *handle, int status) {
 
   saba_err_t r = saba_server_start(bi->server, bi->loop, "0.0.0.0", 1978);
   TRACE("server start: ret=%d\n", r);
-  saba_logger_log(bi->logger, bi->loop, on_logger_log, SABA_LOGGER_LEVEL_INFO, "SabaDB start ...\n");
+  SABA_LOGGER_LOG(bi->logger, bi->loop, on_logger_log, INFO, "SabaDB start ...\n");
 }
 
 
