@@ -40,7 +40,7 @@ static void on_boot(uv_idle_t *handle, int status);
  * internal variables
  */
 
-static uv_idle_t bootstrap;
+static uv_idle_t bootstraper;
 static saba_bootstrap_info_t bootstrap_info;
 
 
@@ -53,11 +53,7 @@ static void on_signal(int signo) {
     bootstrap_info.logger != NULL && 
     bootstrap_info.server != NULL && bootstrap_info.loop != NULL
   );
-  SABA_LOGGER_LOG(bootstrap_info.logger, bootstrap_info.loop, NULL, INFO, "Occured signal '%d'\n", signo);
-
-  if (bootstrap_info.logger) {
-    saba_logger_close(bootstrap_info.logger, bootstrap_info.loop, NULL);
-  }
+  SABA_LOGGER_LOG(bootstrap_info.logger, bootstrap_info.loop, NULL, INFO, "Occured signal number '%d'\n", signo);
 
   if (bootstrap_info.server) {
     saba_err_t err = saba_server_stop(bootstrap_info.server);
@@ -66,7 +62,11 @@ static void on_signal(int signo) {
     bootstrap_info.server = NULL;
   }
 
-  uv_close((uv_handle_t *)&bootstrap, NULL);
+  if (bootstrap_info.logger) {
+    saba_logger_close(bootstrap_info.logger, bootstrap_info.loop, NULL);
+  }
+
+  uv_close((uv_handle_t *)&bootstraper, NULL);
 }
 
 static void on_logger_open(saba_logger_t *logger, saba_err_t ret) {
@@ -100,8 +100,9 @@ static void on_boot(uv_idle_t *handle, int status) {
 
   int32_t worker_num = 1;
   bi->server = saba_server_alloc(worker_num);
+  bi->server->logger = bi->logger;
 
-  saba_err_t r = saba_server_start(bi->server, bi->loop, "0.0.0.0", 1978);
+  saba_err_t r = saba_server_start(bi->server, loop, "0.0.0.0", 1978);
   TRACE("server start: ret=%d\n", r);
   SABA_LOGGER_LOG(bi->logger, bi->loop, on_logger_log, INFO, "SabaDB start ...\n");
 }
@@ -117,9 +118,9 @@ int main () {
   bootstrap_info.logger->level = SABA_LOGGER_LEVEL_ALL;
   bootstrap_info.loop = loop;
 
-  bootstrap.data = &bootstrap_info;
-  uv_idle_init(loop, &bootstrap);
-  uv_idle_start(&bootstrap, on_boot);
+  bootstraper.data = &bootstrap_info;
+  uv_idle_init(loop, &bootstraper);
+  uv_idle_start(&bootstraper, on_boot);
 
   int ret = uv_run(loop);
 
