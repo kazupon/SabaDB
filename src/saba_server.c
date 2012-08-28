@@ -272,6 +272,7 @@ saba_server_t* saba_server_alloc(int32_t worker_num) {
   TRACE("server=%p, tcp=%p\n", server, &server->tcp);
 
   server->logger = NULL;
+  server->loop = NULL;
   server->req_queue = saba_message_queue_alloc();
   server->res_queue = saba_message_queue_alloc();
   assert(server->req_queue != NULL && server->res_queue != NULL);
@@ -282,7 +283,6 @@ saba_server_t* saba_server_alloc(int32_t worker_num) {
   for (i = 0; i < worker_num; i++) {
     saba_worker_t *worker = saba_worker_alloc();
     worker->master = server;
-    worker->logger = server->logger;
     worker->req_queue = server->req_queue;
     worker->res_queue = server->res_queue;
     ngx_queue_insert_tail(&server->workers, &worker->q);
@@ -370,11 +370,17 @@ saba_err_t saba_server_start(
     return SABA_ERR_NG;
   }
 
+  server->loop = loop;
+
   ngx_queue_t *q;
   ngx_queue_foreach(q, &server->workers) {
     saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
     worker->logger = server->logger;
     saba_err_t err = saba_worker_start(worker);
+    SABA_LOGGER_LOG(
+      server->logger, loop, on_server_log, INFO,
+      "start worker ...\n"
+    );
     TRACE("start worker: err=%d\n", err);
   }
 
@@ -389,18 +395,23 @@ saba_err_t saba_server_stop(saba_server_t *server) {
   ngx_queue_t *q;
   ngx_queue_foreach(q, &server->workers) {
     saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
+    SABA_LOGGER_LOG(server->logger, server->loop, on_server_log, INFO, "stop worker ...\n");
     saba_err_t err = saba_worker_stop(worker);
+    SABA_LOGGER_LOG(server->logger, server->loop, on_server_log, INFO, "... worker stop\n");
+    TRACE("stop worker: ret=%d\n", err);
     ret = err;
-    TRACE("stop worker: err=%d\n", err);
   }
-
   uv_close((uv_handle_t *)&server->tcp, NULL);
 
   uv_unref((uv_handle_t *)&server->res_queue_watcher);
   ret = uv_idle_stop(&server->res_queue_watcher);
   if (ret) {
     uv_err_t err = uv_last_error(&server->req_proc_done_notifier.loop);
-    TRACE("stop response queue watcher error: %s (%d)\n", uv_strerror(err), err.code);
+    SABA_LOGGER_LOG(
+      server->logger, server->loop, on_server_log, ERROR,
+      "stop response queue watcher error: %s (%d)\n", uv_strerror(err), err.code
+    );
+    abort();
   }
   uv_close((uv_handle_t *)&server->res_queue_watcher, NULL);
 

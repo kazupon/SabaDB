@@ -210,6 +210,7 @@ static void do_work(void *arg) {
   uv_ref((uv_handle_t *)&worker->queue_watcher);
 
   TRACE("run ...\n");
+  SABA_LOGGER_LOG(worker->logger, loop, on_worker_log, INFO, "... worker run\n");
   ret = uv_run(loop);
   assert(ret == 0);
   TRACE("... run done\n");
@@ -233,6 +234,7 @@ saba_worker_t* saba_worker_alloc(void) {
   worker->req_queue = NULL;
   worker->res_queue = NULL;
   worker->logger = NULL;
+  worker->loop = NULL;
   worker->state = SABA_WORKER_STATE_STOP;
 
   return worker;
@@ -243,6 +245,8 @@ void saba_worker_free(saba_worker_t *worker) {
 
   /* TODO: should be stop thread !! */
   worker->master = NULL;
+  worker->logger = NULL;
+  worker->loop = NULL;
   worker->req_queue = NULL;
   worker->res_queue = NULL;
 

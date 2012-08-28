@@ -29,6 +29,7 @@ typedef struct saba_server_s {
   saba_logger_t *logger;
   /* public */
   /* private */
+  uv_loop_t *loop;
   uv_idle_t res_queue_watcher;
   uv_async_t req_proc_done_notifier;
   /* private */
