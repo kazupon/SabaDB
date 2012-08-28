@@ -27,6 +27,9 @@ typedef struct {
  * event handlers
  */
 
+static void on_server_log(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret) {
+}
+
 static void on_close(uv_handle_t *handle, int status) {
   TRACE("handle=%p, status=%d\n", handle, status);
   free(handle);
@@ -108,7 +111,11 @@ static void on_after_read(uv_stream_t *peer, ssize_t nread, uv_buf_t buf) {
   int32_t ret = uv_async_send(&worker->req_proc_notifier);
   if (ret) {
     uv_err_t err = uv_last_error(loop);
-    TRACE("request proc notifier error: %s (%d)\n", uv_strerror(err), err.code);
+    SABA_LOGGER_LOG(
+      server->logger, loop, on_server_log, ERROR,
+      "request proc notifier error: %s (%d)\n", uv_strerror(err), err.code
+    );
+    abort();
   }
   ngx_queue_insert_tail(&server->workers, &worker->q);
 
@@ -173,6 +180,8 @@ static void on_watch_res_queue(uv_idle_t *watcher, int status) {
   assert(watcher != NULL && status == 0);
   TRACE("watcher=%p, status=%d\n", watcher, status);
 
+  uv_loop_t *loop = watcher->loop;
+
   saba_server_t *server = container_of(watcher, saba_server_t, res_queue_watcher);
   assert(server != NULL && server->res_queue != NULL);
 
@@ -184,7 +193,11 @@ static void on_watch_res_queue(uv_idle_t *watcher, int status) {
     int32_t ret = uv_idle_stop(&server->res_queue_watcher);
     if (ret) {
       uv_err_t err = uv_last_error(watcher->loop);
-      TRACE("stop response queue watching: %s (%d)\n", uv_strerror(err), err.code);
+      SABA_LOGGER_LOG(
+        server->logger, watcher->loop, on_server_log, ERROR,
+        "stop response queue watching: %s (%d)\n", uv_strerror(err), err.code
+      );
+      abort();
     }
     saba_message_queue_unlock(server->res_queue);
     return;
@@ -214,8 +227,11 @@ static void on_watch_res_queue(uv_idle_t *watcher, int status) {
   int32_t ret = uv_write(&wr->req, msg->stream, &wr->buf, 1, on_after_write);
   if (ret) {
     uv_err_t err = uv_last_error(watcher->loop);
-    TRACE("uv_write error: %s (%d)\n", uv_strerror(err), err.code);
-    return;
+    SABA_LOGGER_LOG(
+      server->logger, loop, on_server_log, ERROR,
+      "uv_write error: %s (%d)\n", uv_strerror(err), err.code
+    );
+    abort();
   }
 }
 
@@ -234,7 +250,11 @@ static void on_notify_req_proc_done(uv_async_t *notifier, int status) {
     int32_t ret = uv_idle_start(&server->res_queue_watcher, on_watch_res_queue);
     if (ret) {
       uv_err_t err = uv_last_error(notifier->loop);
-      TRACE("start response queue watching: %s (%d)\n", uv_strerror(err), err.code);
+      SABA_LOGGER_LOG(
+        server->logger, notifier->loop, on_server_log, ERROR,
+        "start response queue watching: %s (%d)\n", uv_strerror(err), err.code
+      );
+      abort();
     }
   }
 
@@ -262,6 +282,7 @@ saba_server_t* saba_server_alloc(int32_t worker_num) {
   for (i = 0; i < worker_num; i++) {
     saba_worker_t *worker = saba_worker_alloc();
     worker->master = server;
+    worker->logger = server->logger;
     worker->req_queue = server->req_queue;
     worker->res_queue = server->res_queue;
     ngx_queue_insert_tail(&server->workers, &worker->q);
@@ -282,6 +303,7 @@ void saba_server_free(saba_server_t *server) {
     saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
     assert(worker != NULL);
     worker->master = NULL;
+    worker->logger = NULL;
     worker->req_queue = NULL;
     worker->res_queue = NULL;
     saba_worker_free(worker);
@@ -351,6 +373,7 @@ saba_err_t saba_server_start(
   ngx_queue_t *q;
   ngx_queue_foreach(q, &server->workers) {
     saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
+    worker->logger = server->logger;
     saba_err_t err = saba_worker_start(worker);
     TRACE("start worker: err=%d\n", err);
   }

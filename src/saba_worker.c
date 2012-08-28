@@ -15,6 +15,10 @@
  * event handlers
  */
 
+static void on_worker_log(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret) {
+  TRACE("logger=%p, level=%d, ret=%d\n", logger, level, ret);
+}
+
 static void on_notify_stopping(uv_async_t *notifier, int status) {
   TRACE("notifier=%p, status=%d\n", notifier, status);
   
@@ -22,6 +26,7 @@ static void on_notify_stopping(uv_async_t *notifier, int status) {
   assert(worker != NULL && worker->req_queue != NULL);
   TRACE("worker->state=%d\n", worker->state);
 
+  SABA_LOGGER_LOG(worker->logger, notifier->loop, on_worker_log, INFO, "fire stop worker\n");
   switch (worker->state) {
     case SABA_WORKER_STATE_IDLE:
       uv_unref((uv_handle_t *)&worker->queue_watcher);
@@ -64,7 +69,11 @@ static void on_watch_req_queue(uv_idle_t *watcher, int status) {
     int32_t ret = uv_idle_stop(&worker->queue_watcher);
     if (ret) {
       uv_err_t err = uv_last_error(loop);
-      TRACE("stop request queue watching error: %s (%d)\n", uv_strerror(err), err.code);
+      SABA_LOGGER_LOG(
+        worker->logger, loop, on_worker_log, ERROR,
+        "stop request queue watching error: %s (%d)\n", uv_strerror(err), err.code
+      );
+      abort();
     }
     worker->state = SABA_WORKER_STATE_IDLE;
     TRACE("worker state(after): %d\n", worker->state);
@@ -104,7 +113,11 @@ static void on_watch_req_queue(uv_idle_t *watcher, int status) {
     int32_t ret = uv_async_send(&((saba_server_t *)worker->master)->req_proc_done_notifier);
     if (ret) {
       uv_err_t err = uv_last_error(loop);
-      TRACE("request procedure done notify error: %s (%d)\n", uv_strerror(err), err.code);
+      SABA_LOGGER_LOG(
+        worker->logger, loop, on_worker_log, ERROR,
+        "request procedure done notify error: %s (%d)\n", uv_strerror(err), err.code
+      );
+      abort();
     }
   }
 
@@ -125,7 +138,11 @@ static void on_notify_req_proc(uv_async_t *notifier, int status) {
     int32_t ret = uv_idle_start(&worker->queue_watcher, on_watch_req_queue);
     if (ret) {
       uv_err_t err = uv_last_error(notifier->loop);
-      TRACE("start request queue watching: %s (%d)\n", uv_strerror(err), err.code);
+      SABA_LOGGER_LOG(
+        worker->logger, notifier->loop, on_worker_log, ERROR,
+        "start request queue watching: %s (%d)\n", uv_strerror(err), err.code
+      );
+      abort();
     }
   }
 
@@ -144,41 +161,52 @@ static void do_work(void *arg) {
   worker->state = SABA_WORKER_STATE_INIT;
 
   uv_loop_t *loop = uv_loop_new();
+  worker->loop = loop;
   assert(loop != NULL);
   TRACE("loop=%p\n", loop);
+
 
   int32_t ret = uv_async_init(loop, &worker->stop_notifier, on_notify_stopping);
   if (ret) {
     uv_err_t err = uv_last_error(loop);
-    TRACE("init request stop notifier error: %s (%d)\n", uv_strerror(err), err.code);
+    SABA_LOGGER_LOG(
+      worker->logger, loop, on_worker_log, ERROR,
+      "init request stop notifier error: %s (%d)\n", uv_strerror(err), err.code
+    );
     abort();
   }
-
   uv_ref((uv_handle_t *)&worker->stop_notifier);
 
   ret = uv_async_init(loop, &worker->req_proc_notifier, on_notify_req_proc);
   if (ret) {
     uv_err_t err = uv_last_error(loop);
-    TRACE("init request procedure notifier error: %s (%d)\n", uv_strerror(err), err.code);
+    SABA_LOGGER_LOG(
+      worker->logger, loop, on_worker_log, ERROR,
+      "init request procedure notifier error: %s (%d)\n", uv_strerror(err), err.code
+    );
     abort();
   }
-
   uv_ref((uv_handle_t *)&worker->req_proc_notifier);
 
   ret = uv_idle_init(loop, &worker->queue_watcher);
   if (ret) {
     uv_err_t err = uv_last_error(loop);
-    TRACE("init queue watcher error: %s (%d)\n", uv_strerror(err), err.code);
+    SABA_LOGGER_LOG(
+      worker->logger, loop, on_worker_log, ERROR,
+      "init queue watcher error: %s (%d)\n", uv_strerror(err), err.code
+    );
     abort();
   }
 
   ret = uv_idle_start(&worker->queue_watcher, on_watch_req_queue);
   if (ret) {
     uv_err_t err = uv_last_error(loop);
-    TRACE("start queue watcher error: %s (%d)\n", uv_strerror(err), err.code);
+    SABA_LOGGER_LOG(
+      worker->logger, loop, on_worker_log, ERROR,
+      "start queue watcher error: %s (%d)\n", uv_strerror(err), err.code
+    );
     abort();
   }
-
   uv_ref((uv_handle_t *)&worker->queue_watcher);
 
   TRACE("run ...\n");
@@ -241,7 +269,10 @@ saba_err_t saba_worker_stop(saba_worker_t *worker) {
   int32_t ret = uv_async_send(&worker->stop_notifier);
   if (ret) {
     uv_err_t err = uv_last_error(worker->stop_notifier.loop);
-    TRACE("send a siginal to stop notify error: %s (%d)\n", uv_strerror(err), err.code);
+    SABA_LOGGER_LOG(
+      worker->logger, worker->loop, on_worker_log, ERROR,
+      "send a siginal to stop notify error: %s (%d)\n", uv_strerror(err), err.code
+    );
     return SABA_ERR_NG;
   }
   assert(ret == 0);
