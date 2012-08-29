@@ -6,7 +6,6 @@
 #include "saba_worker.h"
 #include "debug.h"
 #include "saba_utils.h"
-//#include "saba_server.h"
 #include "saba_master.h"
 #include <assert.h>
 #include <stdlib.h>
