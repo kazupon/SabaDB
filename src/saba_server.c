@@ -7,9 +7,9 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
-#include "saba_worker.h"
 #include "debug.h"
 #include "saba_utils.h"
+#include "saba_message.h"
 
 
 /*
@@ -28,6 +28,7 @@ typedef struct {
  */
 
 static void on_server_log(saba_logger_t *logger, saba_logger_level_t level, saba_err_t ret) {
+  TRACE("logger=%p, level=%d, ret=%d\n", logger, level, ret);
 }
 
 static void on_close(uv_handle_t *handle, int status) {
@@ -41,30 +42,30 @@ static void on_after_shutdown(uv_shutdown_t *req, int status) {
   free(req);
 }
 
+static uv_buf_t on_alloc(uv_handle_t *handle, size_t suggested_size) {
+  TRACE("handle=%p, suggested_size=%ld\n", handle, suggested_size);
+  return uv_buf_init(malloc(suggested_size), suggested_size);
+}
+
 static void on_after_write(uv_write_t *req, int status) {
   TRACE("req=%p, status=%d\n", req, status);
   assert(req != NULL);
 
-  write_req_t *wr = (write_req_t *)req;
-  if (status) {
-    uv_err_t err = uv_last_error(req->handle->loop);
-    TRACE("uv_write error: %s\n", uv_strerror(err));
-    assert(0);
-  }
-
   saba_server_t *server = (saba_server_t *)req->data;
   assert(server != NULL);
 
-  saba_message_t *msg = (saba_message_t *)wr->msg;
-  assert(msg != NULL && msg->stream != NULL && msg->data != NULL);
+  write_req_t *wr = (write_req_t *)req;
+  if (status) {
+    uv_err_t err = uv_last_error(req->handle->loop);
+    SABA_LOGGER_LOG(
+      server->logger, req->handle->loop, on_server_log, ERROR,
+      "uv_write error: %s\n", uv_strerror(err)
+    );
+    abort();
+  }
 
   /* release */
-  free(msg->data);
-  msg->data = NULL;
-  msg->stream = NULL;
-  free(msg);
   free(wr->buf.base);
-  wr->msg = NULL;
   free(wr);
 }
 
@@ -87,48 +88,42 @@ static void on_after_read(uv_stream_t *peer, ssize_t nread, uv_buf_t buf) {
   assert(peer->data != NULL);
 
   saba_server_t *server = container_of(peer->data, saba_server_t, tcp);
-  assert(server != NULL && server->req_queue != NULL);
+  assert(server != NULL && server->master != NULL);
   
-  /* create message */
-  saba_message_t *msg = (saba_message_t *)malloc(sizeof(saba_message_t));
+  /* create request message */
+  saba_message_t *msg = saba_message_alloc();
   assert(msg != NULL);
   msg->kind = SABA_MESSAGE_KIND_ECHO;
   msg->stream = peer;
   msg->data = strdup(buf.base);
   TRACE("create request message: kind=%d, stream=%p, data=%p\n", msg->kind, msg->stream, msg->data);
 
-  saba_message_queue_lock(server->req_queue);
-
-  /* insert message to request message queue */
-  saba_message_queue_insert_tail(server->req_queue, msg);
-  TRACE("put request message\n");
-
-  ngx_queue_t *q = ngx_queue_head(&server->workers);
-  assert(q != NULL);
-  ngx_queue_remove(q);
-  saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
-  assert(worker != NULL);
-  int32_t ret = uv_async_send(&worker->req_proc_notifier);
-  if (ret) {
-    uv_err_t err = uv_last_error(loop);
-    SABA_LOGGER_LOG(
-      server->logger, loop, on_server_log, ERROR,
-      "request proc notifier error: %s (%d)\n", uv_strerror(err), err.code
-    );
-    abort();
-  }
-  ngx_queue_insert_tail(&server->workers, &worker->q);
-
-  saba_message_queue_unlock(server->req_queue);
+  /* pput request message */
+  saba_master_put_request(server->master, msg);
 
   if (buf.base) {
     free(buf.base);
   }
 }
 
-static uv_buf_t on_alloc(uv_handle_t *handle, size_t suggested_size) {
-  TRACE("handle=%p, suggested_size=%ld\n", handle, suggested_size);
-  return uv_buf_init(malloc(suggested_size), suggested_size);
+static void on_response(saba_master_t *master, saba_message_t *msg) {
+  TRACE("master=%p, msg=%p\n", master, msg);
+
+  write_req_t *wr = (write_req_t *)malloc(sizeof(write_req_t));
+  assert(wr != NULL);
+  TRACE("wr=%p\n", wr);
+  wr->req.data = master;
+
+  wr->buf = uv_buf_init(strdup((const char *)msg->data), strlen((const char *)msg->data));
+  int32_t ret = uv_write(&wr->req, msg->stream, &wr->buf, 1, on_after_write);
+  if (ret) {
+    uv_err_t err = uv_last_error(master->loop);
+    SABA_LOGGER_LOG(
+      master->logger, master->loop, on_server_log, ERROR,
+      "uv_write error: %s (%d)\n", uv_strerror(err), err.code
+    );
+    abort();
+  }
 }
 
 static void on_connection(uv_stream_t *tcp, int status) {
@@ -138,10 +133,16 @@ static void on_connection(uv_stream_t *tcp, int status) {
   uv_loop_t *loop = tcp->loop;
   assert(loop != NULL);
 
+  saba_server_t *server = container_of(tcp, saba_server_t, tcp);
+  assert(server != NULL);
+
   if (status != 0) {
     uv_err_t err = uv_last_error(loop);
-    TRACE("connect error: %s (%d)\n", uv_strerror(err), err.code);
-    assert(0);
+    SABA_LOGGER_LOG(
+      server->logger, loop, on_server_log, ERROR,
+      "connect error: %s (%d)\n", uv_strerror(err), err.code
+    );
+    abort();
   }
   assert(status == 0);
 
@@ -152,8 +153,11 @@ static void on_connection(uv_stream_t *tcp, int status) {
   int32_t ret = uv_tcp_init(loop, (uv_tcp_t *)peer);
   if (ret) {
     uv_err_t err = uv_last_error(loop);
-    TRACE("peer init error: %s (%d)\n", uv_strerror(err), err.code);
-    return;
+    SABA_LOGGER_LOG(
+      server->logger, loop, on_server_log, ERROR,
+      "peer init error: %s (%d)\n", uv_strerror(err), err.code
+    );
+    abort();
   }
   assert(ret == 0);
 
@@ -162,131 +166,43 @@ static void on_connection(uv_stream_t *tcp, int status) {
   ret = uv_accept(tcp, peer);
   if (ret) {
     uv_err_t err = uv_last_error(loop);
-    TRACE("accept error: %s (%d)\n", uv_strerror(err), err.code);
-    return;
+    SABA_LOGGER_LOG(
+      server->logger, loop, on_server_log, ERROR,
+      "accept error: %s (%d)\n", uv_strerror(err), err.code
+    );
+    abort();
   }
   assert(ret == 0);
 
   ret = uv_read_start(peer, on_alloc, on_after_read);
   if (ret) {
     uv_err_t err = uv_last_error(loop);
-    TRACE("read start error: %s (%d)\n", uv_strerror(err), err.code);
-    return;
+    SABA_LOGGER_LOG(
+      server->logger, loop, on_server_log, ERROR,
+      "read start error: %s (%d)\n", uv_strerror(err), err.code
+    );
+    abort();
   }
   assert(ret == 0);
 }
 
-static void on_watch_res_queue(uv_idle_t *watcher, int status) {
-  assert(watcher != NULL && status == 0);
-  TRACE("watcher=%p, status=%d\n", watcher, status);
-
-  uv_loop_t *loop = watcher->loop;
-
-  saba_server_t *server = container_of(watcher, saba_server_t, res_queue_watcher);
-  assert(server != NULL && server->res_queue != NULL);
-
-  saba_message_queue_lock(server->res_queue);
-
-  /* check queue */
-  if (saba_message_queue_is_empty(server->res_queue)) {
-    TRACE("respose message is nothing in response message queue\n");
-    int32_t ret = uv_idle_stop(&server->res_queue_watcher);
-    if (ret) {
-      uv_err_t err = uv_last_error(watcher->loop);
-      SABA_LOGGER_LOG(
-        server->logger, watcher->loop, on_server_log, ERROR,
-        "stop response queue watching: %s (%d)\n", uv_strerror(err), err.code
-      );
-      abort();
-    }
-    saba_message_queue_unlock(server->res_queue);
-    return;
-  }
-
-  /* get message */
-  saba_message_t *msg = saba_message_queue_head(server->res_queue);
-  if (msg == NULL || msg->stream == NULL) {
-    TRACE("get reponse message is null or 'stream' is null\n");
-    saba_message_queue_unlock(server->res_queue);
-    return;
-  }
-  TRACE("get response message: kind=%d, stream=%p, data=%p\n", msg->kind, msg->stream, msg->data);
-
-  /* remove messge from respone message queue */
-  saba_message_queue_remove(server->res_queue, msg);
-
-  saba_message_queue_unlock(server->res_queue);
-
-  write_req_t *wr = (write_req_t *)malloc(sizeof(write_req_t));
-  assert(wr != NULL);
-  TRACE("wr=%p\n", wr);
-  wr->msg = msg;
-  wr->req.data = server;
-
-  wr->buf = uv_buf_init(strdup((const char *)msg->data), strlen((const char *)msg->data));
-  int32_t ret = uv_write(&wr->req, msg->stream, &wr->buf, 1, on_after_write);
-  if (ret) {
-    uv_err_t err = uv_last_error(watcher->loop);
-    SABA_LOGGER_LOG(
-      server->logger, loop, on_server_log, ERROR,
-      "uv_write error: %s (%d)\n", uv_strerror(err), err.code
-    );
-    abort();
-  }
-}
-
-static void on_notify_req_proc_done(uv_async_t *notifier, int status) {
-  assert(notifier != NULL && status == 0);
-  TRACE("notifier=%p, status=%d\n", notifier, status);
-
-  saba_server_t *server = container_of(notifier, saba_server_t, req_proc_done_notifier);
-  assert(server != NULL && server->res_queue != NULL);
-
-  saba_message_queue_lock(server->res_queue);
-
-  /* check queue */
-  if (!saba_message_queue_is_empty(server->res_queue)) {
-    TRACE("respose message in response message queue.\n");
-    int32_t ret = uv_idle_start(&server->res_queue_watcher, on_watch_res_queue);
-    if (ret) {
-      uv_err_t err = uv_last_error(notifier->loop);
-      SABA_LOGGER_LOG(
-        server->logger, notifier->loop, on_server_log, ERROR,
-        "start response queue watching: %s (%d)\n", uv_strerror(err), err.code
-      );
-      abort();
-    }
-  }
-
-  saba_message_queue_unlock(server->res_queue);
-}
 
 
 /*
  * server implements
  */
 
-saba_server_t* saba_server_alloc(int32_t worker_num) {
+saba_server_t* saba_server_alloc(int32_t worker_num, saba_logger_t *logger) {
   saba_server_t *server = (saba_server_t *)malloc(sizeof(saba_server_t));
   assert(server != NULL);
-  TRACE("server=%p, tcp=%p\n", server, &server->tcp);
+  TRACE("server=%p\n", server);
 
-  server->logger = NULL;
+  server->logger = logger;
   server->loop = NULL;
-  server->req_queue = saba_message_queue_alloc();
-  server->res_queue = saba_message_queue_alloc();
-  assert(server->req_queue != NULL && server->res_queue != NULL);
-  TRACE("req_queue=%p, res_queue=%p\n", server->req_queue, server->res_queue);
-
-  int32_t i = 0;
-  ngx_queue_init(&server->workers);
-  for (i = 0; i < worker_num; i++) {
-    saba_worker_t *worker = saba_worker_alloc();
-    worker->master = server;
-    worker->req_queue = server->req_queue;
-    worker->res_queue = server->res_queue;
-    ngx_queue_insert_tail(&server->workers, &worker->q);
-  }
+  server->db = NULL;
+  server->master = saba_master_alloc(worker_num);
+  assert(server->master != NULL);
+  server->master->logger = logger;
 
   assert(server != NULL);
   return server;
@@ -296,23 +212,12 @@ void saba_server_free(saba_server_t *server) {
   assert(server != NULL);
   TRACE("server=%p\n", server);
 
-  while (!ngx_queue_empty(&server->workers)) {
-    ngx_queue_t *q = ngx_queue_head(&server->workers);
-    assert(q != NULL);
-    ngx_queue_remove(q);
-    saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
-    assert(worker != NULL);
-    worker->master = NULL;
-    worker->logger = NULL;
-    worker->req_queue = NULL;
-    worker->res_queue = NULL;
-    saba_worker_free(worker);
-  }
-
-  saba_message_queue_free(server->req_queue);
-  saba_message_queue_free(server->res_queue);
-  server->req_queue = NULL;
-  server->res_queue = NULL;
+  server->logger = NULL;
+  server->loop = NULL;
+  server->db = NULL;
+  saba_master_free(server->master);
+  server->master = NULL;
+  free(server);
 }
 
 saba_err_t saba_server_start(
@@ -320,35 +225,7 @@ saba_err_t saba_server_start(
   assert(server != NULL && loop != NULL);
   TRACE("server=%p\n", server);
   
-  int32_t ret = uv_idle_init(loop, &server->res_queue_watcher);
-  if (ret) {
-    uv_err_t err = uv_last_error(loop);
-    TRACE("response queue watcher init error: %s (%d)\n", uv_strerror(err), err.code);
-    /* TODO: should be released saba_server_t resource */
-    return SABA_ERR_NG;
-  }
-
-  ret = uv_idle_start(&server->res_queue_watcher, on_watch_res_queue);
-  if (ret) {
-    uv_err_t err = uv_last_error(loop);
-    TRACE("watch response queue start error: %s (%d)\n", uv_strerror(err), err.code);
-    /* TODO: should be released saba_server_t resource */
-    return SABA_ERR_NG;
-  }
-
-  uv_ref((uv_handle_t *)&server->res_queue_watcher);
-
-  ret = uv_async_init(loop, &server->req_proc_done_notifier, on_notify_req_proc_done);
-  if (ret) {
-    uv_err_t err = uv_last_error(loop);
-    TRACE("request want notifier init error: %s (%d)\n", uv_strerror(err), err.code);
-    /* TODO: should be released saba_server_t resource */
-    return SABA_ERR_NG;
-  }
-
-  uv_ref((uv_handle_t *)&server->req_proc_done_notifier);
-
-  ret = uv_tcp_init(loop, &server->tcp);
+  int32_t ret = uv_tcp_init(loop, &server->tcp);
   if (ret) {
     uv_err_t err = uv_last_error(loop);
     TRACE("socket create error: %s (%d)\n", uv_strerror(err), err.code);
@@ -370,19 +247,16 @@ saba_err_t saba_server_start(
     return SABA_ERR_NG;
   }
 
-  server->loop = loop;
-
-  ngx_queue_t *q;
-  ngx_queue_foreach(q, &server->workers) {
-    saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
-    worker->logger = server->logger;
-    saba_err_t err = saba_worker_start(worker);
+  ret = (int32_t)saba_master_start(server->master, loop, on_response);
+  if (ret) {
     SABA_LOGGER_LOG(
-      server->logger, loop, on_server_log, INFO,
-      "start worker ...\n"
+      server->logger, loop, on_server_log, ERROR,
+      "master start error: %d\n", ret
     );
-    TRACE("start worker: err=%d\n", err);
+    return SABA_ERR_NG;
   }
+
+  server->loop = loop;
 
   return (saba_err_t)ret;
 }
@@ -391,33 +265,16 @@ saba_err_t saba_server_stop(saba_server_t *server) {
   assert(server != NULL);
   TRACE("server=%p\n", server);
 
-  int32_t ret = 0;
-  ngx_queue_t *q;
-  ngx_queue_foreach(q, &server->workers) {
-    saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
-    SABA_LOGGER_LOG(server->logger, server->loop, on_server_log, INFO, "stop worker ...\n");
-    saba_err_t err = saba_worker_stop(worker);
-    SABA_LOGGER_LOG(server->logger, server->loop, on_server_log, INFO, "... worker stop\n");
-    TRACE("stop worker: ret=%d\n", err);
-    ret = err;
-  }
-  uv_close((uv_handle_t *)&server->tcp, NULL);
-
-  uv_unref((uv_handle_t *)&server->res_queue_watcher);
-  ret = uv_idle_stop(&server->res_queue_watcher);
+  saba_err_t ret = saba_master_stop(server->master);
   if (ret) {
-    uv_err_t err = uv_last_error(&server->req_proc_done_notifier.loop);
     SABA_LOGGER_LOG(
       server->logger, server->loop, on_server_log, ERROR,
-      "stop response queue watcher error: %s (%d)\n", uv_strerror(err), err.code
+      "master master error: %d\n", ret
     );
-    abort();
   }
-  uv_close((uv_handle_t *)&server->res_queue_watcher, NULL);
 
-  uv_unref((uv_handle_t *)&server->req_proc_done_notifier);
-  uv_close((uv_handle_t *)&server->req_proc_done_notifier, NULL);
+  uv_close((uv_handle_t *)&server->tcp, NULL);
 
-  return (saba_err_t)ret;
+  return ret;
 }
 

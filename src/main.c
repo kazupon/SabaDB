@@ -98,13 +98,12 @@ static void on_boot(uv_idle_t *handle, int status) {
 
   saba_logger_open(bi->logger, loop, "./sabadb.log", NULL);
 
-  int32_t worker_num = 1;
-  bi->server = saba_server_alloc(worker_num);
-  bi->server->logger = bi->logger;
+  int32_t worker_num = 4;
+  bi->server = saba_server_alloc(worker_num, bi->logger);
 
   saba_err_t r = saba_server_start(bi->server, loop, "0.0.0.0", 1978);
   TRACE("server start: ret=%d\n", r);
-  SABA_LOGGER_LOG(bi->logger, bi->loop, on_logger_log, INFO, "SabaDB start ...\n");
+  SABA_LOGGER_LOG(bi->logger, bi->loop, NULL, INFO, "SabaDB start ...\n");
 }
 
 

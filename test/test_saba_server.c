@@ -50,6 +50,7 @@ static void on_setup(uv_idle_t *handle, int status) {
 }
 
 int test_saba_server_setup(void) {
+  TRACE("\n");
   unlink(PATH);
   data.logger = saba_logger_alloc();
   uv_loop_t *loop = uv_default_loop();
@@ -74,6 +75,7 @@ static void on_teardown(uv_idle_t *handle, int status) {
 }
 
 int test_saba_server_teardown(void) {
+  TRACE("\n");
   uv_loop_t *loop = uv_default_loop();
   uv_idle_init(loop, &bootstraper);
   bootstraper.data = &data;
@@ -87,13 +89,26 @@ int test_saba_server_teardown(void) {
 
 
 void test_saba_server_alloc_and_free(void) {
+  TRACE("\n");
   int32_t worker_num = 2;
-  saba_server_t *server = saba_server_alloc(worker_num);
+  saba_server_t *server = saba_server_alloc(worker_num, NULL);
 
   CU_ASSERT_PTR_NOT_NULL(server);
-  CU_ASSERT_PTR_NOT_NULL(server->req_queue);
-  CU_ASSERT_PTR_NOT_NULL(server->res_queue);
+  CU_ASSERT_PTR_NOT_NULL(server->master);
   CU_ASSERT_PTR_NULL(server->logger);
+  CU_ASSERT_PTR_NULL(server->loop);
+  CU_ASSERT_PTR_NULL(server->db);
+
+  saba_server_free(server);
+
+  /* set logger */
+  server = saba_server_alloc(worker_num, data.logger);
+
+  CU_ASSERT_PTR_NOT_NULL(server);
+  CU_ASSERT_PTR_NOT_NULL(server->master);
+  CU_ASSERT_PTR_NOT_NULL(server->logger);
+  CU_ASSERT_PTR_NULL(server->loop);
+  CU_ASSERT_PTR_NULL(server->db);
 
   saba_server_free(server);
 }
@@ -122,10 +137,10 @@ static void on_test_saba_server_start_and_stop(uv_idle_t *handle, int status) {
 }
 
 void test_saba_server_start_and_stop(void) {
+  TRACE("\n");
   uv_loop_t *loop = uv_default_loop();
   int32_t worker_num = 1;
-  data.server = saba_server_alloc(worker_num);
-  data.server->logger = data.logger;
+  data.server = saba_server_alloc(worker_num, data.logger);
 
   uv_idle_init(loop, &bootstraper);
   bootstraper.data = &data;
@@ -225,8 +240,7 @@ static void on_boot_echo(uv_idle_t *handle, int status) {
 
 static void echo(int32_t worker_num, int32_t echo_count) {
   uv_loop_t *loop = uv_default_loop();
-  data.server = saba_server_alloc(worker_num);
-  data.server->logger = data.logger;
+  data.server = saba_server_alloc(worker_num, data.logger);
 
   ECHO_COUNT = echo_count;
   uv_idle_init(loop, &bootstraper);
@@ -240,6 +254,7 @@ static void echo(int32_t worker_num, int32_t echo_count) {
 }
 
 void test_saba_server_echo(void) {
+  TRACE("\n");
   uint64_t time;
   uint64_t echos = 2000;
 

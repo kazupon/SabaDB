@@ -4,6 +4,7 @@
 #include "test_saba_message_queue.h"
 #include "test_saba_logger.h"
 #include "test_saba_worker.h"
+#include "test_saba_master.h"
 #include "test_saba_server.h"
 
 
@@ -52,6 +53,16 @@ int main() {
   CU_TestInfo worker_tests[] = {
     { "worker 'alloc' and 'free' test", test_saba_worker_alloc_and_free },
     { "worker 'start' and 'stop' test", test_saba_worker_start_and_stop },
+    { "worker 'request' callback test", test_saba_worker_on_request },
+    CU_TEST_INFO_NULL,
+  };
+
+  CU_TestInfo master_tests[] = {
+    { "master 'alloc' and 'free' test", test_saba_master_alloc_and_free },
+    { "master 'start' and 'stop' test", test_saba_master_start_and_stop },
+    { "master 'put_request' test", test_saba_master_put_request },
+    { "master 'response' callback test", test_saba_master_on_response },
+    { "master 100 'put_request' and 'response' callback test", test_saba_master_100_put_request_and_on_response },
     CU_TEST_INFO_NULL,
   };
 
@@ -67,6 +78,7 @@ int main() {
     { "message & message queue tests", NULL, NULL, msg_q_tests },
     { "logger tests", NULL, NULL, logger_tests },
     { "worker tests", test_saba_worker_setup, test_saba_worker_teardown, worker_tests },
+    { "master tests", test_saba_master_setup, test_saba_master_teardown, master_tests },
     { "server tests", test_saba_server_setup, test_saba_server_teardown, server_tests },
     CU_SUITE_INFO_NULL,
   };

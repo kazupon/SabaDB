@@ -6,7 +6,8 @@
 #include "saba_worker.h"
 #include "debug.h"
 #include "saba_utils.h"
-#include "saba_server.h"
+//#include "saba_server.h"
+#include "saba_master.h"
 #include <assert.h>
 #include <stdlib.h>
 
@@ -90,15 +91,13 @@ static void on_watch_req_queue(uv_idle_t *watcher, int status) {
   TRACE("get request message: kind=%d, stream=%p, data=%p\n", msg->kind, msg->stream, msg->data);
 
   /* TODO: somthing todo ... */
+  if (worker->req_cb) {
+    TRACE("request callback: %p\n", worker->req_cb);
+    worker->req_cb(worker, msg);
+  }
 
   /* remove message to request message queue */
   saba_message_queue_remove(worker->req_queue, msg);
-
-  /* TODO: release message ? */
-  /*
-  free(msg->command);
-  free(msg);
-  */
 
   saba_message_queue_unlock(worker->req_queue);
 
@@ -107,10 +106,18 @@ static void on_watch_req_queue(uv_idle_t *watcher, int status) {
   
   /* put response message in response queue */
   bool is_empty = saba_message_queue_is_empty(worker->res_queue);
-  saba_message_queue_insert_tail(worker->res_queue, msg);
+
+  saba_message_t *res_msg = saba_message_alloc();
+  res_msg->kind = msg->kind;
+  res_msg->data = strdup(msg->data);
+  res_msg->stream = msg->stream;
+
+  saba_message_queue_insert_tail(worker->res_queue, res_msg);
   TRACE("put response message in response message queue\n");
+  
   if (is_empty) {
-    int32_t ret = uv_async_send(&((saba_server_t *)worker->master)->req_proc_done_notifier);
+    //int32_t ret = uv_async_send(&((saba_server_t *)worker->master)->req_proc_done_notifier);
+    int32_t ret = uv_async_send(&((saba_master_t *)worker->master)->req_proc_done_notifier);
     if (ret) {
       uv_err_t err = uv_last_error(loop);
       SABA_LOGGER_LOG(
@@ -120,6 +127,11 @@ static void on_watch_req_queue(uv_idle_t *watcher, int status) {
       abort();
     }
   }
+  
+  if (msg->data) {
+    free(msg->data);
+  }
+  free(msg);
 
   saba_message_queue_unlock(worker->res_queue);
 }
@@ -236,6 +248,7 @@ saba_worker_t* saba_worker_alloc(void) {
   worker->logger = NULL;
   worker->loop = NULL;
   worker->state = SABA_WORKER_STATE_STOP;
+  worker->req_cb = NULL;
 
   return worker;
 }
@@ -249,6 +262,7 @@ void saba_worker_free(saba_worker_t *worker) {
   worker->loop = NULL;
   worker->req_queue = NULL;
   worker->res_queue = NULL;
+  worker->req_cb = NULL;
 
   free(worker);
 }

@@ -43,6 +43,7 @@
       'src/saba_message_queue.c',
       'src/saba_logger.c',
       'src/saba_worker.c',
+      'src/saba_master.c',
       'src/saba_server.c',
     ],
     'defines': [
@@ -95,6 +96,7 @@
       'test/test_saba_message_queue.c',
       'test/test_saba_logger.c',
       'test/test_saba_worker.c',
+      'test/test_saba_master.c',
       'test/test_saba_server.c',
       'test/runner.c',
     ],

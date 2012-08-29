@@ -9,11 +9,24 @@
 
 #include <uv.h>
 #include "saba_common.h"
+#include "saba_message.h"
 #include "saba_message_queue.h"
 #include "saba_logger.h"
 
 
-struct saba_server_s; /* server declar */
+/*
+ * declarations
+ */
+
+typedef struct saba_worker_s saba_worker_t; /* worker */
+struct saba_server_s; /* server */
+
+
+/*
+ * worker callbacks
+ */
+
+typedef saba_message_t* (*saba_worker_on_request)(saba_worker_t *worker, saba_message_t *msg);
 
 
 /*
@@ -32,23 +45,25 @@ typedef enum {
  * worker
  */
 
-typedef struct {
+typedef struct saba_worker_s {
+  /* private */
+  uv_async_t req_proc_notifier;
+  uv_loop_t *loop;
+  uv_idle_t queue_watcher;
+  uv_async_t stop_notifier;
+  ngx_queue_t q;
+  /* private */
   /* public */
   uv_thread_t tid;
   saba_message_queue_t *req_queue;
   saba_message_queue_t *res_queue;
   saba_logger_t *logger;
   volatile saba_worker_state_t state;
-  struct saba_worker_s *master;
+  saba_worker_on_request req_cb;
+  //struct saba_server_s *master;
+  struct saba_master_s *master;
   /* public */
-  /* private */
-  uv_loop_t *loop;
-  uv_idle_t queue_watcher;
-  uv_async_t req_proc_notifier;
-  uv_async_t stop_notifier;
-  ngx_queue_t q;
-  /* private */
-} saba_worker_t;
+};
 
 
 /*
