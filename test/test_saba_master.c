@@ -11,6 +11,7 @@
 #include "saba_message.h"
 #include "saba_message_queue.h"
 #include "saba_logger.h"
+#include "saba_worker.h"
 
 
 typedef struct {
@@ -23,6 +24,7 @@ static const char *PATH = "./hoge.log";
 static cu_test_master_t data;
 static uv_idle_t bootstraper;
 static int32_t response_cb_count;
+static int32_t request_cb_count;
 
 
 static void on_setup(uv_idle_t *handle, int status) {
@@ -101,7 +103,7 @@ static void on_test_saba_master_start_and_stop(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_master_t *d = (cu_test_master_t *)handle->data;
 
-  saba_err_t ret = saba_master_start(d->master, handle->loop, NULL);
+  saba_err_t ret = saba_master_start(d->master, handle->loop, NULL, NULL);
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   uv_idle_start(handle, on_master_stop);
@@ -128,7 +130,7 @@ static void on_test_saba_master_put_request(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_master_t *d = (cu_test_master_t *)handle->data;
 
-  saba_err_t ret = saba_master_start(d->master, handle->loop, NULL);
+  saba_err_t ret = saba_master_start(d->master, handle->loop, NULL, NULL);
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   usleep(1000 * 100); /* timing */
@@ -168,11 +170,18 @@ static void on_master_response(saba_master_t *master, saba_message_t *msg) {
   uv_idle_start(&bootstraper, on_master_stop);
 }
 
+static saba_message_t* on_master_request(saba_worker_t *worker, saba_message_t *msg) {
+  CU_ASSERT_PTR_NOT_NULL(worker);
+  CU_ASSERT_PTR_NOT_NULL(msg);
+  request_cb_count++;
+  return NULL;
+}
+
 static void on_test_saba_master_on_response(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_master_t *d = (cu_test_master_t *)handle->data;
 
-  saba_err_t ret = saba_master_start(d->master, handle->loop, on_master_response);
+  saba_err_t ret = saba_master_start(d->master, handle->loop, on_master_response, on_master_request);
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   usleep(2000 * 100); /* timing */
@@ -187,6 +196,7 @@ static void on_test_saba_master_on_response(uv_idle_t *handle, int status) {
 void test_saba_master_on_response(void) {
   TRACE("\n");
   response_cb_count = 0;
+  request_cb_count = 0;
   uv_loop_t *loop = uv_default_loop();
   int32_t worker_num = 1;
   data.master = saba_master_alloc(worker_num);
@@ -199,6 +209,7 @@ void test_saba_master_on_response(void) {
   uv_run(loop);
 
   CU_ASSERT_EQUAL(response_cb_count, 1);
+  CU_ASSERT_EQUAL(request_cb_count, 1);
   saba_master_free(data.master);
 }
 
@@ -218,11 +229,18 @@ static void on_master_100_response(saba_master_t *master, saba_message_t *msg) {
   }
 }
 
+static saba_message_t* on_master_100_request(saba_worker_t *worker, saba_message_t *msg) {
+  CU_ASSERT_PTR_NOT_NULL(worker);
+  CU_ASSERT_PTR_NOT_NULL(msg);
+  request_cb_count++;
+  return NULL;
+}
+
 static void on_test_saba_master_100_put_request_and_on_response(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_master_t *d = (cu_test_master_t *)handle->data;
 
-  saba_err_t ret = saba_master_start(d->master, handle->loop, on_master_100_response);
+  saba_err_t ret = saba_master_start(d->master, handle->loop, on_master_100_response, on_master_100_request);
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   usleep(1000 * 100); /* timing */
@@ -240,6 +258,7 @@ static void on_test_saba_master_100_put_request_and_on_response(uv_idle_t *handl
 void test_saba_master_100_put_request_and_on_response(void) {
   TRACE("\n");
   response_cb_count = 0;
+  request_cb_count = 0;
   uv_loop_t *loop = uv_default_loop();
   int32_t worker_num = 4;
   data.master = saba_master_alloc(worker_num);
@@ -252,6 +271,7 @@ void test_saba_master_100_put_request_and_on_response(void) {
   uv_run(loop);
 
   CU_ASSERT_EQUAL(response_cb_count, 100);
+  CU_ASSERT_EQUAL(request_cb_count, 100);
   saba_master_free(data.master);
 }
 

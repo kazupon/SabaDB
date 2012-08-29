@@ -204,7 +204,6 @@ saba_server_t* saba_server_alloc(int32_t worker_num, saba_logger_t *logger) {
   assert(server->master != NULL);
   server->master->logger = logger;
 
-  assert(server != NULL);
   return server;
 }
 
@@ -247,7 +246,7 @@ saba_err_t saba_server_start(
     return SABA_ERR_NG;
   }
 
-  ret = (int32_t)saba_master_start(server->master, loop, on_response);
+  ret = (int32_t)saba_master_start(server->master, loop, on_response, NULL);
   if (ret) {
     SABA_LOGGER_LOG(
       server->logger, loop, on_server_log, ERROR,

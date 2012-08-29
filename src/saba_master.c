@@ -154,7 +154,10 @@ void saba_master_free(saba_master_t *master) {
   master->res_queue = NULL;
 }
 
-saba_err_t saba_master_start(saba_master_t *master, uv_loop_t *loop, saba_master_response_cb cb) {
+saba_err_t saba_master_start(
+  saba_master_t *master, uv_loop_t *loop, 
+  saba_master_response_cb res_cb, saba_worker_on_request req_cb
+) {
   assert(master != NULL && loop != NULL);
   TRACE("master=%p, loop=%p, cb=%p\n", master, loop, cb);
   
@@ -196,12 +199,13 @@ saba_err_t saba_master_start(saba_master_t *master, uv_loop_t *loop, saba_master
   uv_ref((uv_handle_t *)&master->req_proc_done_notifier);
 
   master->loop = loop;
-  master->res_cb = cb;
+  master->res_cb = res_cb;
 
   ngx_queue_t *q;
   ngx_queue_foreach(q, &master->workers) {
     saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
     worker->logger = master->logger;
+    worker->req_cb = req_cb;
     saba_err_t err = saba_worker_start(worker);
     SABA_LOGGER_LOG(
       master->logger, loop, on_master_log, INFO,

@@ -50,9 +50,12 @@ typedef struct saba_master_s {
 
 saba_master_t* saba_master_alloc(int32_t worker_num);
 void saba_master_free(saba_master_t *master);
-saba_err_t saba_master_start(saba_master_t *master, uv_loop_t *loop, saba_master_response_cb cb);
+saba_err_t saba_master_start(
+  saba_master_t *master, uv_loop_t *loop,
+  saba_master_response_cb res_cb, saba_worker_on_request req_cb
+);
 saba_err_t saba_master_stop(saba_master_t *master);
-saba_err_t saba_master_put_request(saba_master_t *master, /*uv_loop_t *loop,*/ saba_message_t *msg);
+saba_err_t saba_master_put_request(saba_master_t *master, saba_message_t *msg);
 
 
 #endif /* SABA_MASTER_H */
