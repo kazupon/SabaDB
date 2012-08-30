@@ -127,7 +127,6 @@ saba_master_t* saba_master_alloc(int32_t worker_num) {
     ngx_queue_insert_tail(&master->workers, &worker->q);
   }
 
-  assert(master != NULL);
   return master;
 }
 
@@ -141,10 +140,6 @@ void saba_master_free(saba_master_t *master) {
     ngx_queue_remove(q);
     saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
     assert(worker != NULL);
-    worker->master = NULL;
-    worker->logger = NULL;
-    worker->req_queue = NULL;
-    worker->res_queue = NULL;
     saba_worker_free(worker);
   }
 
@@ -152,6 +147,8 @@ void saba_master_free(saba_master_t *master) {
   saba_message_queue_free(master->res_queue);
   master->req_queue = NULL;
   master->res_queue = NULL;
+
+  free(master);
 }
 
 saba_err_t saba_master_start(
@@ -159,7 +156,7 @@ saba_err_t saba_master_start(
   saba_master_response_cb res_cb, saba_worker_on_request req_cb
 ) {
   assert(master != NULL && loop != NULL);
-  TRACE("master=%p, loop=%p, cb=%p\n", master, loop, cb);
+  TRACE("master=%p, loop=%p, res_cb=%p, req_cb=%p\n", master, loop, res_cb, req_cb);
   
   int32_t ret = uv_idle_init(loop, &master->res_queue_watcher);
   if (ret) {
@@ -225,9 +222,9 @@ saba_err_t saba_master_stop(saba_master_t *master) {
   ngx_queue_t *q;
   ngx_queue_foreach(q, &master->workers) {
     saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
-    SABA_LOGGER_LOG(master->logger, master->loop, on_master_log, INFO, "stop worker ...\n");
+    SABA_LOGGER_LOG(master->logger, master->loop, NULL, INFO, "stop worker ...\n");
     saba_err_t err = saba_worker_stop(worker);
-    SABA_LOGGER_LOG(master->logger, master->loop, on_master_log, INFO, "... worker stop\n");
+    SABA_LOGGER_LOG(master->logger, master->loop, NULL, INFO, "... worker stop\n");
     TRACE("stop worker: ret=%d\n", err);
     ret = err;
   }
@@ -237,7 +234,7 @@ saba_err_t saba_master_stop(saba_master_t *master) {
   if (ret) {
     uv_err_t err = uv_last_error(&master->req_proc_done_notifier.loop);
     SABA_LOGGER_LOG(
-      master->logger, master->loop, on_master_log, ERROR,
+      master->logger, master->loop, NULL, ERROR,
       "stop response queue watcher error: %s (%d)\n", uv_strerror(err), err.code
     );
     abort();

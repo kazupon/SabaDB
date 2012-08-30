@@ -4,11 +4,11 @@
  */
 
 #include "saba_worker.h"
+#include <assert.h>
+#include <stdlib.h>
 #include "debug.h"
 #include "saba_utils.h"
 #include "saba_master.h"
-#include <assert.h>
-#include <stdlib.h>
 
 
 /*
@@ -26,7 +26,7 @@ static void on_notify_stopping(uv_async_t *notifier, int status) {
   assert(worker != NULL && worker->req_queue != NULL);
   TRACE("worker->state=%d\n", worker->state);
 
-  SABA_LOGGER_LOG(worker->logger, notifier->loop, on_worker_log, INFO, "fire stop worker\n");
+  SABA_LOGGER_LOG(worker->logger, notifier->loop, NULL, INFO, "fire stop worker\n");
   switch (worker->state) {
     case SABA_WORKER_STATE_IDLE:
       uv_unref((uv_handle_t *)&worker->queue_watcher);
@@ -227,6 +227,7 @@ static void do_work(void *arg) {
   TRACE("... run done\n");
 
   uv_loop_delete(loop);
+  worker->loop = NULL;
 
   worker->state = SABA_WORKER_STATE_STOP;
 }
@@ -287,7 +288,7 @@ saba_err_t saba_worker_stop(saba_worker_t *worker) {
   if (ret) {
     uv_err_t err = uv_last_error(worker->stop_notifier.loop);
     SABA_LOGGER_LOG(
-      worker->logger, worker->loop, on_worker_log, ERROR,
+      worker->logger, worker->loop, NULL, ERROR,
       "send a siginal to stop notify error: %s (%d)\n", uv_strerror(err), err.code
     );
     return SABA_ERR_NG;

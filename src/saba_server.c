@@ -211,11 +211,13 @@ void saba_server_free(saba_server_t *server) {
   assert(server != NULL);
   TRACE("server=%p\n", server);
 
+  saba_master_free(server->master);
+
+  server->master = NULL;
   server->logger = NULL;
   server->loop = NULL;
   server->db = NULL;
-  saba_master_free(server->master);
-  server->master = NULL;
+
   free(server);
 }
 
