@@ -31,10 +31,12 @@
     'target_name': 'libsabadb',
     'type': 'static_library',
     'dependencies': [
+      'deps/memproto/memproto.gyp:memproto',
       'deps/libuv/uv.gyp:uv',
       'kyotocabinet',
     ],
     'export_dependent_settings': [
+      'deps/memproto/memproto.gyp:memproto',
       'deps/libuv/uv.gyp:uv',
     ],
     'sources': [
