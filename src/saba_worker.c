@@ -115,7 +115,6 @@ static void on_watch_req_queue(uv_idle_t *watcher, int status) {
   TRACE("put response message in response message queue\n");
   
   if (is_empty) {
-    //int32_t ret = uv_async_send(&((saba_server_t *)worker->master)->req_proc_done_notifier);
     int32_t ret = uv_async_send(&((saba_master_t *)worker->master)->req_proc_done_notifier);
     if (ret) {
       uv_err_t err = uv_last_error(loop);

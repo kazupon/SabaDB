@@ -98,7 +98,7 @@ static void on_after_read(uv_stream_t *peer, ssize_t nread, uv_buf_t buf) {
   msg->data = strdup(buf.base);
   TRACE("create request message: kind=%d, stream=%p, data=%p\n", msg->kind, msg->stream, msg->data);
 
-  /* pput request message */
+  /* put request message */
   saba_master_put_request(server->master, msg);
 
   if (buf.base) {

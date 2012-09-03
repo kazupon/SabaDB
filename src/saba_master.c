@@ -248,7 +248,7 @@ saba_err_t saba_master_stop(saba_master_t *master) {
   return (saba_err_t)ret;
 }
 
-saba_err_t saba_master_put_request(saba_master_t *master, /*uv_loop_t *loop,*/ saba_message_t *msg) {
+saba_err_t saba_master_put_request(saba_master_t *master, saba_message_t *msg) {
   assert(master != NULL && msg != NULL);
   TRACE("master=%p, msg=%p\n", master, msg);
 
