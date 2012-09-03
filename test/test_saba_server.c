@@ -91,22 +91,10 @@ int test_saba_server_teardown(void) {
 void test_saba_server_alloc_and_free(void) {
   TRACE("\n");
   int32_t worker_num = 2;
-  saba_server_t *server = saba_server_alloc(worker_num, NULL);
+  saba_server_t *server = saba_server_alloc(worker_num);
 
   CU_ASSERT_PTR_NOT_NULL(server);
   CU_ASSERT_PTR_NOT_NULL(server->master);
-  CU_ASSERT_PTR_NULL(server->logger);
-  CU_ASSERT_PTR_NULL(server->loop);
-  CU_ASSERT_PTR_NULL(server->db);
-
-  saba_server_free(server);
-
-  /* set logger */
-  server = saba_server_alloc(worker_num, data.logger);
-
-  CU_ASSERT_PTR_NOT_NULL(server);
-  CU_ASSERT_PTR_NOT_NULL(server->master);
-  CU_ASSERT_PTR_NOT_NULL(server->logger);
   CU_ASSERT_PTR_NULL(server->loop);
   CU_ASSERT_PTR_NULL(server->db);
 
@@ -130,7 +118,7 @@ static void on_test_saba_server_start_and_stop(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_server_t *d = (cu_test_server_t *)handle->data;
 
-  saba_err_t ret = saba_server_start(d->server, handle->loop, "0.0.0.0", 1978);
+  saba_err_t ret = saba_server_start(d->server, handle->loop, d->logger, "0.0.0.0", 1978);
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   uv_idle_start(handle, on_server_stop);
@@ -140,7 +128,7 @@ void test_saba_server_start_and_stop(void) {
   TRACE("\n");
   uv_loop_t *loop = uv_default_loop();
   int32_t worker_num = 1;
-  data.server = saba_server_alloc(worker_num, data.logger);
+  data.server = saba_server_alloc(worker_num);
 
   uv_idle_init(loop, &bootstraper);
   bootstraper.data = &data;
@@ -225,7 +213,7 @@ static void on_boot_echo(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_server_t *d = (cu_test_server_t *)handle->data;
 
-  saba_server_start(d->server, handle->loop, "0.0.0.0", 1978);
+  saba_server_start(d->server, handle->loop, d->logger, "0.0.0.0", 1978);
   
   /* setup client */
   struct sockaddr_in client_addr = uv_ip4_addr("0.0.0.0", 0);
@@ -240,7 +228,7 @@ static void on_boot_echo(uv_idle_t *handle, int status) {
 
 static void echo(int32_t worker_num, int32_t echo_count) {
   uv_loop_t *loop = uv_default_loop();
-  data.server = saba_server_alloc(worker_num, data.logger);
+  data.server = saba_server_alloc(worker_num);
 
   ECHO_COUNT = echo_count;
   uv_idle_init(loop, &bootstraper);

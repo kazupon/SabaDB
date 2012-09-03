@@ -71,7 +71,7 @@ typedef struct saba_worker_s {
 
 saba_worker_t* saba_worker_alloc(void);
 void saba_worker_free(saba_worker_t *worker);
-saba_err_t saba_worker_start(saba_worker_t *worker);
+saba_err_t saba_worker_start(saba_worker_t *worker, saba_logger_t *logger);
 saba_err_t saba_worker_stop(saba_worker_t *worker);
 
 

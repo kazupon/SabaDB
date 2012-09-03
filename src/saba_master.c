@@ -152,11 +152,14 @@ void saba_master_free(saba_master_t *master) {
 }
 
 saba_err_t saba_master_start(
-  saba_master_t *master, uv_loop_t *loop, 
+  saba_master_t *master, uv_loop_t *loop, saba_logger_t *logger,
   saba_master_response_cb res_cb, saba_worker_on_request req_cb
 ) {
   assert(master != NULL && loop != NULL);
-  TRACE("master=%p, loop=%p, res_cb=%p, req_cb=%p\n", master, loop, res_cb, req_cb);
+  TRACE(
+    "master=%p, loop=%p, logger=%p, res_cb=%p, req_cb=%p\n", 
+    master, loop, logger, res_cb, req_cb
+  );
   
   int32_t ret = uv_idle_init(loop, &master->res_queue_watcher);
   if (ret) {
@@ -179,7 +182,6 @@ saba_err_t saba_master_start(
     /* TODO: should be released saba_server_t resource */
     return SABA_ERR_NG;
   }
-
   uv_ref((uv_handle_t *)&master->res_queue_watcher);
 
   ret = uv_async_init(loop, &master->req_proc_done_notifier, on_notify_req_proc_done);
@@ -192,18 +194,17 @@ saba_err_t saba_master_start(
     /* TODO: should be released saba_server_t resource */
     return SABA_ERR_NG;
   }
-
   uv_ref((uv_handle_t *)&master->req_proc_done_notifier);
 
   master->loop = loop;
+  master->logger = logger;
   master->res_cb = res_cb;
 
   ngx_queue_t *q;
   ngx_queue_foreach(q, &master->workers) {
     saba_worker_t *worker = ngx_queue_data(q, saba_worker_t, q);
-    worker->logger = master->logger;
     worker->req_cb = req_cb;
-    saba_err_t err = saba_worker_start(worker);
+    saba_err_t err = saba_worker_start(worker, master->logger);
     SABA_LOGGER_LOG(
       master->logger, loop, on_master_log, INFO,
       "start worker ...\n"
@@ -229,7 +230,6 @@ saba_err_t saba_master_stop(saba_master_t *master) {
     ret = err;
   }
 
-  uv_unref((uv_handle_t *)&master->res_queue_watcher);
   ret = uv_idle_stop(&master->res_queue_watcher);
   if (ret) {
     uv_err_t err = uv_last_error(&master->req_proc_done_notifier.loop);
@@ -239,6 +239,7 @@ saba_err_t saba_master_stop(saba_master_t *master) {
     );
     abort();
   }
+  uv_unref((uv_handle_t *)&master->res_queue_watcher);
   uv_close((uv_handle_t *)&master->res_queue_watcher, NULL);
 
   uv_unref((uv_handle_t *)&master->req_proc_done_notifier);

@@ -26,7 +26,7 @@ static void on_notify_stopping(uv_async_t *notifier, int status) {
   assert(worker != NULL && worker->req_queue != NULL);
   TRACE("worker->state=%d\n", worker->state);
 
-  SABA_LOGGER_LOG(worker->logger, notifier->loop, NULL, INFO, "fire stop worker\n");
+  SABA_LOGGER_LOG(worker->logger, notifier->loop, NULL, DEBUG, "fire stop worker\n");
   switch (worker->state) {
     case SABA_WORKER_STATE_IDLE:
       uv_unref((uv_handle_t *)&worker->queue_watcher);
@@ -267,9 +267,10 @@ void saba_worker_free(saba_worker_t *worker) {
   free(worker);
 }
 
-saba_err_t saba_worker_start(saba_worker_t *worker) {
-  TRACE("worker=%p\n", worker);
+saba_err_t saba_worker_start(saba_worker_t *worker, saba_logger_t *logger) {
+  TRACE("worker=%p, logger=%p\n", worker, logger);
 
+  worker->logger = logger;
   int32_t ret = uv_thread_create(&worker->tid, do_work, worker);
   assert(ret == 0);
 

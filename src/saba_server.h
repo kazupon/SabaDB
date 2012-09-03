@@ -35,10 +35,11 @@ typedef struct saba_server_s {
  * server prototypes
  */
 
-saba_server_t* saba_server_alloc(int32_t worker_num, saba_logger_t *logger);
+saba_server_t* saba_server_alloc(int32_t worker_num);
 void saba_server_free(saba_server_t *server);
 saba_err_t saba_server_start(
-  saba_server_t *server, uv_loop_t *loop, const char *address, uint16_t port
+  saba_server_t *server, uv_loop_t *loop, saba_logger_t *logger, 
+  const char *address, uint16_t port
 );
 saba_err_t saba_server_stop(saba_server_t *server);
 

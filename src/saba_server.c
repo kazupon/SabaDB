@@ -192,17 +192,16 @@ static void on_connection(uv_stream_t *tcp, int status) {
  * server implements
  */
 
-saba_server_t* saba_server_alloc(int32_t worker_num, saba_logger_t *logger) {
+saba_server_t* saba_server_alloc(int32_t worker_num) {
   saba_server_t *server = (saba_server_t *)malloc(sizeof(saba_server_t));
   assert(server != NULL);
   TRACE("server=%p\n", server);
 
-  server->logger = logger;
+  server->logger = NULL;
   server->loop = NULL;
   server->db = NULL;
   server->master = saba_master_alloc(worker_num);
   assert(server->master != NULL);
-  server->master->logger = logger;
 
   return server;
 }
@@ -222,9 +221,10 @@ void saba_server_free(saba_server_t *server) {
 }
 
 saba_err_t saba_server_start(
-  saba_server_t *server, uv_loop_t *loop, const char *address, uint16_t port) {
+  saba_server_t *server, uv_loop_t *loop, saba_logger_t *logger,
+  const char *address, uint16_t port) {
   assert(server != NULL && loop != NULL);
-  TRACE("server=%p\n", server);
+  TRACE("server=%p, loop=%p, logger=%p\n", server, loop, logger);
   
   int32_t ret = uv_tcp_init(loop, &server->tcp);
   if (ret) {
@@ -248,7 +248,9 @@ saba_err_t saba_server_start(
     return SABA_ERR_NG;
   }
 
-  ret = (int32_t)saba_master_start(server->master, loop, on_response, NULL);
+  server->logger = logger;
+
+  ret = (int32_t)saba_master_start(server->master, loop, server->logger, on_response, NULL);
   if (ret) {
     SABA_LOGGER_LOG(
       server->logger, loop, on_server_log, ERROR,
@@ -258,6 +260,7 @@ saba_err_t saba_server_start(
   }
 
   server->loop = loop;
+  uv_ref((uv_handle_t *)&server->tcp);
 
   return (saba_err_t)ret;
 }
@@ -274,6 +277,7 @@ saba_err_t saba_server_stop(saba_server_t *server) {
     );
   }
 
+  uv_ref((uv_handle_t *)&server->tcp);
   uv_close((uv_handle_t *)&server->tcp, NULL);
 
   return ret;

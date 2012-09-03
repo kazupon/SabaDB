@@ -87,7 +87,7 @@ static void on_test_saba_worker_start_and_stop(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_worker_t *d = (cu_test_worker_t *)handle->data;
 
-  saba_err_t ret = saba_worker_start(d->worker);
+  saba_err_t ret = saba_worker_start(d->worker, d->logger);
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   usleep(1000 * 100);
@@ -109,7 +109,6 @@ void test_saba_worker_start_and_stop(void) {
   worker->master = master;
   worker->req_queue = msg_q1;
   worker->res_queue = msg_q2;
-  worker->logger = data.logger;
   data.worker = worker;
   
   uv_idle_init(loop, &bootstraper);
@@ -150,7 +149,7 @@ static void on_test_saba_worker_on_request(uv_idle_t *handle, int status) {
 
   d->worker->req_cb = on_worker_request;
 
-  saba_err_t ret = saba_worker_start(d->worker);
+  saba_err_t ret = saba_worker_start(d->worker, d->logger);
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   usleep(1000 * 100);
@@ -177,7 +176,6 @@ void test_saba_worker_on_request(void) {
   worker->master = master;
   worker->req_queue = msg_q1;
   worker->res_queue = msg_q2;
-  worker->logger = data.logger;
   data.worker = worker;
   
   uv_idle_init(loop, &bootstraper);

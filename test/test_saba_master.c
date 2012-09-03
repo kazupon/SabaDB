@@ -103,7 +103,7 @@ static void on_test_saba_master_start_and_stop(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_master_t *d = (cu_test_master_t *)handle->data;
 
-  saba_err_t ret = saba_master_start(d->master, handle->loop, NULL, NULL);
+  saba_err_t ret = saba_master_start(d->master, handle->loop, d->logger, NULL, NULL);
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   uv_idle_start(handle, on_master_stop);
@@ -114,7 +114,6 @@ void test_saba_master_start_and_stop(void) {
   uv_loop_t *loop = uv_default_loop();
   int32_t worker_num = 1;
   data.master = saba_master_alloc(worker_num);
-  data.master->logger = data.logger;
 
   uv_idle_init(loop, &bootstraper);
   bootstraper.data = &data;
@@ -130,7 +129,7 @@ static void on_test_saba_master_put_request(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_master_t *d = (cu_test_master_t *)handle->data;
 
-  saba_err_t ret = saba_master_start(d->master, handle->loop, NULL, NULL);
+  saba_err_t ret = saba_master_start(d->master, handle->loop, d->logger, NULL, NULL);
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   usleep(1000 * 100); /* timing */
@@ -148,7 +147,6 @@ void test_saba_master_put_request(void) {
   uv_loop_t *loop = uv_default_loop();
   int32_t worker_num = 1;
   data.master = saba_master_alloc(worker_num);
-  data.master->logger = data.logger;
 
   uv_idle_init(loop, &bootstraper);
   bootstraper.data = &data;
@@ -181,7 +179,9 @@ static void on_test_saba_master_on_response(uv_idle_t *handle, int status) {
   uv_idle_stop(handle);
   cu_test_master_t *d = (cu_test_master_t *)handle->data;
 
-  saba_err_t ret = saba_master_start(d->master, handle->loop, on_master_response, on_master_request);
+  saba_err_t ret = saba_master_start(
+    d->master, handle->loop, d->logger, on_master_response, on_master_request
+  );
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   usleep(2000 * 100); /* timing */
@@ -200,7 +200,6 @@ void test_saba_master_on_response(void) {
   uv_loop_t *loop = uv_default_loop();
   int32_t worker_num = 1;
   data.master = saba_master_alloc(worker_num);
-  data.master->logger = data.logger;
 
   uv_idle_init(loop, &bootstraper);
   bootstraper.data = &data;
@@ -240,7 +239,9 @@ static void on_test_saba_master_100_put_request_and_on_response(uv_idle_t *handl
   uv_idle_stop(handle);
   cu_test_master_t *d = (cu_test_master_t *)handle->data;
 
-  saba_err_t ret = saba_master_start(d->master, handle->loop, on_master_100_response, on_master_100_request);
+  saba_err_t ret = saba_master_start(
+    d->master, handle->loop, d->logger, on_master_100_response, on_master_100_request
+  );
   CU_ASSERT_EQUAL(ret, SABA_ERR_OK);
 
   usleep(1000 * 100); /* timing */
@@ -262,7 +263,6 @@ void test_saba_master_100_put_request_and_on_response(void) {
   uv_loop_t *loop = uv_default_loop();
   int32_t worker_num = 4;
   data.master = saba_master_alloc(worker_num);
-  data.master->logger = data.logger;
 
   uv_idle_init(loop, &bootstraper);
   bootstraper.data = &data;

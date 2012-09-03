@@ -42,6 +42,7 @@ static void on_boot(uv_idle_t *handle, int status);
 
 static uv_idle_t bootstraper;
 static saba_bootstrap_info_t bootstrap_info;
+static uv_signal_t signal_detecter;
 
 
 /*
@@ -71,6 +72,28 @@ static void regist_signal_handler(int signal, void (*handler)(int)) {
   sigaction(signal, &sa, NULL);
 }
 
+static void on_signal_cb(uv_signal_t *handle, int signum) {
+  assert(handle != NULL);
+
+  uv_loop_t *loop = handle->loop;
+  saba_bootstrap_info_t *bi = (saba_bootstrap_info_t *)handle->data;
+  assert(bi != NULL);
+
+  assert(bi->logger != NULL && bi->server != NULL);
+  SABA_LOGGER_LOG(bi->logger, loop, NULL, INFO, "Occured signal number '%d'\n", signum);
+
+  if (bi->server) {
+    saba_err_t err = saba_server_stop(bi->server);
+    TRACE("stop server: err=%d\n", err);
+  }
+
+  if (bi->logger) {
+    saba_logger_close(bi->logger, loop, NULL);
+  }
+
+  uv_close((uv_handle_t *)handle, NULL);
+}
+
 static void on_signal(int signo) {
   assert(
     bootstrap_info.logger != NULL && 
@@ -81,15 +104,13 @@ static void on_signal(int signo) {
   if (bootstrap_info.server) {
     saba_err_t err = saba_server_stop(bootstrap_info.server);
     TRACE("stop server: err=%d\n", err);
-    /* TODO: FIXME: when server object release, occured segumentation falt '11' !! */
-    saba_server_free(bootstrap_info.server);
-    bootstrap_info.server = NULL;
   }
 
   if (bootstrap_info.logger) {
     saba_logger_close(bootstrap_info.logger, bootstrap_info.loop, NULL);
   }
 
+  uv_close((uv_handle_t *)&signal_detecter, NULL);
   uv_close((uv_handle_t *)&bootstraper, NULL);
 }
 
@@ -97,22 +118,23 @@ static void on_boot(uv_idle_t *handle, int status) {
   assert(handle != NULL && status == 0);
   uv_idle_stop(handle);
   
-  regist_signal_handler(SIGINT, on_signal);
-  regist_signal_handler(SIGTERM, on_signal);
-  regist_signal_handler(SIGPIPE, SIG_IGN);
+  uv_loop_t *loop = handle->loop;
 
   saba_bootstrap_info_t *bi = (saba_bootstrap_info_t *)handle->data;
-  uv_loop_t *loop = handle->loop;
   assert(bi != NULL);
+
+  uv_signal_init(loop, &signal_detecter);
+  signal_detecter.data = handle->data;
+  uv_signal_start(&signal_detecter, on_signal_cb, SIGINT);
+  regist_signal_handler(SIGPIPE, SIG_IGN);
 
   saba_logger_open(bi->logger, loop, "./sabadb.log", NULL);
 
-  int32_t worker_num = 1;
-  bi->server = saba_server_alloc(worker_num, bi->logger);
-
-  saba_err_t r = saba_server_start(bi->server, loop, "0.0.0.0", 1978);
+  saba_err_t r = saba_server_start(bi->server, loop, bi->logger, "0.0.0.0", 1978);
   TRACE("server start: ret=%d\n", r);
   SABA_LOGGER_LOG(bi->logger, bi->loop, NULL, INFO, "SabaDB start ...\n");
+
+  uv_close((uv_handle_t *)handle, NULL);
 }
 
 
@@ -122,9 +144,12 @@ static void on_boot(uv_idle_t *handle, int status) {
 int main () {
   uv_idle_t *loop = uv_default_loop();
 
+  int32_t worker_num = 1;
+
   bootstrap_info.logger = saba_logger_alloc();
   bootstrap_info.logger->level = SABA_LOGGER_LEVEL_ALL;
   bootstrap_info.loop = loop;
+  bootstrap_info.server = saba_server_alloc(worker_num);
 
   bootstraper.data = &bootstrap_info;
   uv_idle_init(loop, &bootstraper);
@@ -133,6 +158,7 @@ int main () {
   int ret = uv_run(loop);
   TRACE("main loop ret: %d\n", ret);
 
+  saba_server_free(bootstrap_info.server);
   saba_logger_free(bootstrap_info.logger);
 
   return ret;
