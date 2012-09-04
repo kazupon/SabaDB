@@ -54,6 +54,7 @@
     ],
     'include_dirs': [
       'src',
+      'deps/memproto',
       'deps/libuv/include',
       '<(kc_shared_include_dir)',
     ],
@@ -100,10 +101,12 @@
       'test/test_saba_worker.c',
       'test/test_saba_master.c',
       'test/test_saba_server.c',
+      'test/test_memtext.c',
       'test/runner.c',
     ],
     'include_dirs': [
       'src',
+      'deps/memproto',
       '<(kc_shared_include_dir)',
     ],
     'conditions': [

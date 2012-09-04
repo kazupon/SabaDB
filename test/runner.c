@@ -6,6 +6,7 @@
 #include "test_saba_worker.h"
 #include "test_saba_master.h"
 #include "test_saba_server.h"
+#include "test_memtext.h"
 
 
 /*
@@ -73,6 +74,11 @@ int main() {
     CU_TEST_INFO_NULL,
   };
 
+  CU_TestInfo memtext_tests[] = {
+    { "memtext 'parse' test", test_memtext_parse },
+    CU_TEST_INFO_NULL,
+  };
+
   CU_SuiteInfo suites[] = {
     { "utils tests", NULL, NULL, utils_tests },
     { "message & message queue tests", NULL, NULL, msg_q_tests },
@@ -80,6 +86,7 @@ int main() {
     { "worker tests", test_saba_worker_setup, test_saba_worker_teardown, worker_tests },
     { "master tests", test_saba_master_setup, test_saba_master_teardown, master_tests },
     { "server tests", test_saba_server_setup, test_saba_server_teardown, server_tests },
+    { "memcached text protocol test", test_memtext_setup, test_memtext_teardown, memtext_tests },
     CU_SUITE_INFO_NULL,
   };
 
