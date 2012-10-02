@@ -8,6 +8,7 @@
 
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <uv.h>
 #include "saba_message.h"
 
