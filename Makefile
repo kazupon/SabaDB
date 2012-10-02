@@ -18,7 +18,6 @@ test:
 
 clean:
 	-rm -rf out/Makefile
-	-rm -rf out/**/lev
 
 
 .PHONY: all test build rebuild clean

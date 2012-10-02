@@ -8,4 +8,5 @@ build
 out
 Release
 Debug
+.DS_Store
 *.swp
